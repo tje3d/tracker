@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Tracker - Rogue
+## Notes: Rogue HUD (abilities, energy, combo points, cooldowns) for TrackerCore.
+## Version: 1.0.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: RogueTrackerDB
+
+RogueTracker.lua

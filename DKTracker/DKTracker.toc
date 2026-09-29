@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Tracker - Death Knight
+## Notes: Unholy Death Knight HUD (runes, runic power, cooldowns) for TrackerCore.
+## Version: 1.0.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: DKTrackerDB
+
+DKTracker.lua

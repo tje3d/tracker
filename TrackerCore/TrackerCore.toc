@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: Tracker - Core
+## Notes: Shared engine and class-module loader for the class trackers.
+## Version: 1.0
+## SavedVariables: TrackerCoreDB
+TrackerCore.lua

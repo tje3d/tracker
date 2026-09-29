@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Tracker - Warrior
+## Notes: Fury Warrior HUD (procs, rage, cooldowns) for TrackerCore.
+## Version: 1.0.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: WarriorTrackerDB
+
+WarriorTracker.lua

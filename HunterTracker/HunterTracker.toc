@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Tracker - Hunter
+## Notes: Marksmanship Hunter HUD (aspects, sting, mana, cooldowns) for TrackerCore.
+## Version: 1.0.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: HunterTrackerDB
+
+HunterTracker.lua

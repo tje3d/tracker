@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Tracker - Priest
+## Notes: Shadow Priest HUD (DoTs, procs, cooldowns) for TrackerCore.
+## Version: 1.0.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: PriestTrackerDB
+
+PriestTracker.lua
