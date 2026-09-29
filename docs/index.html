@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracker - Modular Class HUD for WoW WotLK 3.3.5a</title>
+<meta name="description" content="Tracker is a lightweight class HUD addon for World of Warcraft 3.3.5a (WotLK). Track procs, DoTs, cooldowns, resources, combo points and runes with one shared engine and a config per class. Free download.">
+<meta name="keywords" content="wow addon, wotlk addon, 3.3.5a addon, world of warcraft, wotlk, class hud, tracker, cooldown tracker, proc tracker, tracker core, warmane addon, icy tower, dalaran wow">
+<meta name="robots" content="index, follow">
+<meta name="author" content="tje3d">
+<link rel="canonical" href="https://tje3d.github.io/tracker/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tracker">
+<meta property="og:title" content="Tracker - Modular Class HUD for WoW WotLK 3.3.5a">
+<meta property="og:description" content="A lightweight class HUD for World of Warcraft 3.3.5a. Procs, DoTs, cooldowns and resources in one compact cluster. One engine, a config per class.">
+<meta property="og:url" content="https://tje3d.github.io/tracker/">
+<meta property="og:image" content="https://raw.githubusercontent.com/tje3d/tracker/main/TrackerCore/images/ss1.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tracker - Modular Class HUD for WoW WotLK 3.3.5a">
+<meta name="twitter:description" content="Procs, DoTs, cooldowns and resources in one compact HUD. One engine, a config per class.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/tje3d/tracker/main/TrackerCore/images/ss1.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Tracker",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Windows, macOS",
+  "description": "Modular class HUD for World of Warcraft 3.3.5a (WotLK) that tracks procs, DoTs, cooldowns, resources, combo points and runes.",
+  "url": "https://tje3d.github.io/tracker/",
+  "downloadUrl": "https://github.com/tje3d/tracker/releases/latest",
+  "softwareVersion": "1.0.0",
+  "author": { "@type": "Person", "name": "tje3d" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a21; --panel2:#1c212b; --line:#2a3140;
+    --text:#e6e9ef; --muted:#9aa4b5; --accent:#7aa2ff; --accent2:#c41e3a;
+    --gold:#f0c040;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:960px; margin:0 auto; padding:0 20px}
+  header.hero{
+    background:radial-gradient(1200px 500px at 50% -10%, #1d2b4a 0%, #0e1014 60%);
+    border-bottom:1px solid var(--line);
+    padding:72px 0 56px; text-align:center;
+  }
+  .badge{display:inline-block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--gold); border:1px solid #3a3320; background:#211d10; padding:4px 12px; border-radius:999px}
+  h1{font-size:clamp(34px,6vw,54px); margin:18px 0 8px; line-height:1.1}
+  .tag{color:var(--muted); font-size:clamp(16px,2.4vw,20px); max-width:640px; margin:0 auto}
+  .cta{margin-top:28px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap}
+  .btn{display:inline-block; padding:13px 24px; border-radius:10px; font-weight:600; border:1px solid transparent}
+  .btn.primary{background:linear-gradient(180deg,#8fb2ff,#5f86e6); color:#0b1220}
+  .btn.primary:hover{text-decoration:none; filter:brightness(1.08)}
+  .btn.ghost{border-color:var(--line); color:var(--text); background:var(--panel)}
+  .btn.ghost:hover{text-decoration:none; background:var(--panel2)}
+  section{padding:56px 0; border-bottom:1px solid var(--line)}
+  h2{font-size:26px; margin:0 0 20px}
+  h3{margin:0 0 6px; font-size:17px}
+  p.lead{color:var(--muted); margin-top:0}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px}
+  .card p{margin:0; color:var(--muted); font-size:15px}
+  .class-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
+  .cls{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .cls b{display:block; margin-bottom:2px}
+  .cls span{color:var(--muted); font-size:14px}
+  .shot{width:100%; border-radius:14px; border:1px solid var(--line); display:block; margin:10px 0}
+  .shots{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px}
+  pre{background:#0b0d11; border:1px solid var(--line); border-radius:12px; padding:16px 18px; overflow:auto; color:#cdd6e6}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px}
+  table{width:100%; border-collapse:collapse; margin-top:8px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:15px}
+  th{color:var(--muted); font-weight:600}
+  td code{color:var(--gold)}
+  ol li,ul li{margin:6px 0}
+  footer{padding:40px 0; text-align:center; color:var(--muted); font-size:14px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">World of Warcraft 3.3.5a &middot; WotLK &middot; Interface 30300</span>
+    <h1>Tracker</h1>
+    <p class="tag">A modular class HUD for WotLK. Procs, DoTs, cooldowns and resources in one compact cluster &mdash; one shared engine, a config per class.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/tje3d/tracker/releases/latest">Download Tracker</a>
+      <a class="btn ghost" href="https://github.com/tje3d/tracker">View on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What is Tracker?</h2>
+    <p class="lead">Tracker puts the handful of things you actually react to during a fight near the center of your screen, then gets out of the way when nothing is happening. It is built as one shared engine plus a small config per class, so it stays fast, clean and easy to extend.</p>
+    <div class="grid">
+      <div class="card"><h3>Talent-aware</h3><p>Every spell is filtered through your spellbook. Talents you never specced simply never appear, and the display survives a respec.</p></div>
+      <div class="card"><h3>Smart auras</h3><p>DoTs and debuffs show on the target with a live clock sweep. Player-only tracking never mistakes another caster's debuff for yours.</p></div>
+      <div class="card"><h3>Upkeep reminders</h3><p>Maintained effects stay on screen and turn grey while missing, so you can see at a glance what needs refreshing.</p></div>
+      <div class="card"><h3>Proc glow &amp; blink</h3><p>Cooldowns and procs glow when ready and blink as they come off cooldown.</p></div>
+      <div class="card"><h3>Resource &amp; secondary bars</h3><p>Rage, mana, energy and runic power, plus combo points and color-coded Death Knight runes.</p></div>
+      <div class="card"><h3>Draggable &amp; scalable</h3><p>Unlock, drag, lock for click-through, and scale from 0.5 to 2.0. Position and scale are saved per character.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Screenshots</h2>
+    <div class="shots">
+      <img class="shot" src="https://raw.githubusercontent.com/tje3d/tracker/main/TrackerCore/images/ss1.png" alt="Tracker class HUD running in World of Warcraft 3.3.5a">
+      <img class="shot" src="https://raw.githubusercontent.com/tje3d/tracker/main/TrackerCore/images/ss2.png" alt="Death Knight runes and runic power tracked by Tracker">
+      <img class="shot" src="https://raw.githubusercontent.com/tje3d/tracker/main/TrackerCore/images/ss3.png" alt="Tracker cooldown row with proc glow">
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Supported classes</h2>
+    <div class="class-grid">
+      <div class="cls"><b>Rogue</b><span>Energy, combo points, poison warning</span></div>
+      <div class="cls"><b>Death Knight</b><span>Runic Power, six typed runes</span></div>
+      <div class="cls"><b>Hunter</b><span>Mana, sting, missing-aura warnings</span></div>
+      <div class="cls"><b>Mage</b><span>Fire / Arcane procs, Arcane Blast stacks</span></div>
+      <div class="cls"><b>Priest</b><span>Shadow DoTs, Shadow Weaving stacks</span></div>
+      <div class="cls"><b>Warrior</b><span>Rage, Flurry and Sunder stacks</span></div>
+      <div class="cls"><b>Warlock</b><span>Affliction / Destro / Demo</span></div>
+      <div class="cls"><b>Druid</b><span>Balance DoTs, Eclipse</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Install</h2>
+    <ol>
+      <li>Download the latest release and extract it directly into <code>World of Warcraft/Interface/AddOns/</code>.</li>
+      <li>Restart the client, or type <code>/reload</code>, then log in.</li>
+      <li>Type <code>/tracker unlock</code> to drag the HUD, then <code>/tracker lock</code> to lock it in place.</li>
+    </ol>
+    <table>
+      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><td><code>/tracker unlock</code></td><td>Unlock and drag the HUD</td></tr>
+      <tr><td><code>/tracker lock</code></td><td>Lock in place, enable click-through</td></tr>
+      <tr><td><code>/tracker reset</code></td><td>Snap back to default position</td></tr>
+      <tr><td><code>/tracker scale 1.2</code></td><td>Resize the HUD (0.5 to 2.0)</td></tr>
+      <tr><td><code>/tracker rebuild</code></td><td>Rebuild after a talent or spec change</td></tr>
+      <tr><td><code>/tracker</code></td><td>Show all commands</td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Tracker is free for the 3.3.5a community. &middot;
+    <a href="https://github.com/tje3d/tracker">GitHub</a> &middot;
+    <a href="https://github.com/tje3d/tracker/releases/latest">Download</a>
+  </div>
+</footer>
+
+</body>
+</html>
