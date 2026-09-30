@@ -27,7 +27,8 @@ TrackerCore:RegisterModule({
         { name = "Lichborne",           icon = "Interface\\Icons\\Spell_Shadow_RaiseDead",              glowWhenReady = true },
         { name = "Anti-Magic Zone",     icon = "Interface\\Icons\\Spell_DeathKnight_AntiMagicZone",     glowWhenReady = true },
         { name = "Ghoul Frenzy",        icon = "Interface\\Icons\\Ability_GhoulFrenzy" },
-        { name = "Hysteria",            icon = "Interface\\Icons\\Spell_DeathKnight_Hysteria" }
+        { name = "Hysteria",            icon = "Interface\\Icons\\Spell_DeathKnight_Hysteria" },
+        { name = "Mark of Blood",       icon = "Interface\\Icons\\Spell_DeathKnight_MarkOfBlood" }
     },
     -- Only shown while up on the player or target.
     abilities = {
@@ -40,7 +41,9 @@ TrackerCore:RegisterModule({
         { name = "Bone Shield",      icon = "Interface\\Icons\\Spell_DeathKnight_BoneShield", alwaysVisible = true },
         { name = "Horn of Winter",   icon = "Interface\\Icons\\Spell_DeathKnight_HornofWinter", alwaysVisible = true },
         { name = "Summon Gargoyle",  icon = "Interface\\Icons\\Spell_DeathKnight_SummonGargoyle" },
-        { name = "Unholy Blight",    icon = "Interface\\Icons\\Spell_Shadow_UnholyBlight" }
+        { name = "Unholy Blight",    icon = "Interface\\Icons\\Spell_Shadow_UnholyBlight" },
+        -- Talent proc, not in the spellbook. Any rank shares the aura name.
+        { name = "Desolation",       icon = "Interface\\Icons\\Spell_Shadow_ShadowWordDominate", alwaysShow = true }
     },
 
     iconSize = 32,
