@@ -16,15 +16,13 @@ TrackerCore:RegisterModule({
 
     cooldowns = {
         { name = "Shadow Word: Death", icon = "Interface\\Icons\\Spell_Shadow_ShadowWordDeath",  glowWhenReady = true },
-        { name = "Mind Blast",         icon = "Interface\\Icons\\Spell_Shadow_UnholyFrenzy",     glowWhenReady = true },
         { name = "Dispersion",         icon = "Interface\\Icons\\Spell_Shadow_Dispersion",       glowWhenReady = true },
         { name = "Inner Focus",        icon = "Interface\\Icons\\Spell_Frost_FrostWard",          glowWhenReady = true },
         { name = "Shadowfiend",        icon = "Interface\\Icons\\Spell_Shadow_Shadowfiend",       glowWhenReady = true },
         { name = "Psychic Horror",     icon = "Interface\\Icons\\Spell_Shadow_PsychicHorrors" },
         { name = "Psychic Scream",     icon = "Interface\\Icons\\Spell_Shadow_PsychicScream" },
         { name = "Silence",            icon = "Interface\\Icons\\Spell_Shadow_ImpPhaseShift" },
-        { name = "Fade",               icon = "Interface\\Icons\\Spell_Magic_LesserInvisibilty" },
-        { name = "Vampiric Embrace",   icon = "Interface\\Icons\\Spell_Shadow_UnsummonBuilding" }
+        { name = "Fade",               icon = "Interface\\Icons\\Spell_Magic_LesserInvisibilty" }
     },
     abilities = {
         { name = "Shadowform",          icon = "Interface\\Icons\\Spell_Shadow_Shadowform" },

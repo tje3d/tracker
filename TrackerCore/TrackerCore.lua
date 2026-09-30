@@ -92,6 +92,8 @@ end
 --   mutually-exclusive auras (only the active member of a group is shown)
 --   iconSize, abilityIconSize, spacing, maxCooldownsPerRow
 --   point, scale, locked, blinkThreshold
+--   swipeLayers = opacity of the top-to-bottom cooldown shade on every icon
+--                 (default 2; higher = darker)
 --   resource  = optional: { powerType, dynamicMax, max, color, height }
 --   secondary = optional: { type = "combo"|"rune", count, height, color,
 --                 colors, dim, fallbackType, order }
@@ -133,6 +135,7 @@ function Core:InitModule(CONFIG)
         db.scale = db.scale or CONFIG.scale
         db.locked = db.locked or CONFIG.locked
         if db.forceShow == nil then db.forceShow = false end
+        if db.swipeLayers == nil then db.swipeLayers = CONFIG.swipeLayers or 2 end
     end
 
     -- =======================================================================
@@ -473,6 +476,18 @@ function Core:InitModule(CONFIG)
     -- =======================================================================
     -- ICON FACTORY
     -- =======================================================================
+    -- Resize an existing icon in place. The texture, overlay, glow and sweep
+    -- layers all use SetAllPoints/relative anchors, so only the frame and the
+    -- border texture need to be resized.
+    local function IconSetSize(self, size)
+        self.rtSize = size
+        self:SetSize(size, size)
+        if self.border then
+            local borderScale = size / 36
+            self.border:SetSize(64 * borderScale, 64 * borderScale)
+        end
+    end
+
     local function CreateIcon(parent, size)
         local f = CreateFrame("Frame", nil, parent)
         f:SetSize(size, size)
@@ -516,17 +531,78 @@ function Core:InitModule(CONFIG)
         border:Hide()
         f.border = border
 
-        local cooldown = CreateFrame("Cooldown", nil, f)
-        cooldown:SetAllPoints(f)
-        cooldown:SetFrameLevel(f:GetFrameLevel() + 1)
-        cooldown:SetReverse(false)
-        cooldown:Hide()
-        f.cooldownFrame = cooldown
+        -- Cooldown sweep, ElvUI nameplate style: a vertical bar whose dark
+        -- shade descends from the top of the icon as the timer runs out. The
+        -- status bar's (transparent) fill marks the time left; the shade hangs
+        -- from the icon's top edge down to the top of that fill, so it grows
+        -- downward. swipeLayers only controls how opaque the shade is, since
+        -- 3.3.5 exposes no colour/texture API for the native Cooldown widget.
+        local layers = db.swipeLayers or 2
+        if layers < 1 then layers = 1 end
+
+        local sweep = CreateFrame("StatusBar", nil, f)
+        sweep:SetAllPoints(f)
+        sweep:SetFrameLevel(f:GetFrameLevel() + 1)
+        sweep:SetOrientation("VERTICAL")
+        sweep:SetMinMaxValues(0, 1)
+        sweep:SetValue(1)
+        sweep:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        sweep:SetStatusBarColor(0, 0, 0, 0) -- transparent: the icon shows through
+
+        local shade = sweep:CreateTexture(nil, "BACKGROUND")
+        shade:SetTexture(0, 0, 0, 1)
+        shade:SetAlpha(math.min(0.85, 0.25 + 0.2 * layers))
+        shade:SetPoint("TOPLEFT", sweep, "TOPLEFT", 0, 0)
+        shade:SetPoint("BOTTOMRIGHT", sweep:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
+        sweep.shade = shade
+
+        -- Advance the fill every frame; a StatusBar, unlike the old Cooldown
+        -- widget, does not animate on its own.
+        sweep:SetScript("OnUpdate", function(self)
+            local start, duration = self.startTime, self.duration
+            if not start or not duration or duration <= 0 then return end
+            local remaining = (start + duration) - GetTime()
+            if remaining < 0 then remaining = 0 end
+            self:SetValue(remaining)
+        end)
+        sweep:Hide()
+
+        f.sweepFrames = { sweep }
+        f.cooldownFrame = sweep
 
         f.StartGlow = IconStartGlow
         f.StopGlow = IconStopGlow
+        f.SetIconSize = IconSetSize
 
         return f
+    end
+
+    -- Point every sweep at a new start/duration. The OnUpdate set on each
+    -- sweep reads these fields and drives the vertical fill.
+    local function SweepSet(frame, start, duration)
+        local frames = frame.sweepFrames
+        for i = 1, #frames do
+            local sweep = frames[i]
+            sweep.startTime = start
+            sweep.duration = duration
+            sweep:SetMinMaxValues(0, duration)
+            sweep:SetValue(duration)
+        end
+    end
+
+    local function SweepShow(frame)
+        local frames = frame.sweepFrames
+        for i = 1, #frames do frames[i]:Show() end
+    end
+
+    local function SweepHide(frame)
+        local frames = frame.sweepFrames
+        for i = 1, #frames do
+            local sweep = frames[i]
+            sweep.startTime, sweep.duration = nil, nil
+            sweep:SetValue(1)
+            sweep:Hide()
+        end
     end
 
     -- =======================================================================
@@ -1037,17 +1113,16 @@ function Core:InitModule(CONFIG)
                         or (math.abs(duration - (data.rtDuration or 0)) > 0.25)
                     if newCooldown then
                         data.rtStart, data.rtDuration = start, duration
-                        frame.cooldownFrame:SetCooldown(start, duration)
+                        SweepSet(frame, start, duration)
                     end
                     if not data.rtCooldownShown then
                         data.rtCooldownShown = true
-                        frame.cooldownFrame:Show()
+                        SweepShow(frame)
                     end
                 elseif data.rtCooldownShown or data.rtStart ~= 0 then
                     data.rtCooldownShown = false
                     data.rtStart, data.rtDuration = 0, 0
-                    frame.cooldownFrame:SetCooldown(0, 0)
-                    frame.cooldownFrame:Hide()
+                    SweepHide(frame)
                 end
                 data.rtLastRemaining = remaining
             else
@@ -1063,8 +1138,7 @@ function Core:InitModule(CONFIG)
                     data.rtCooldownShown = false
                     data.rtStart, data.rtDuration = 0, 0
                     data.rtLastRemaining = nil
-                    frame.cooldownFrame:SetCooldown(0, 0)
-                    frame.cooldownFrame:Hide()
+                    SweepHide(frame)
                 end
             end
 
@@ -1119,7 +1193,9 @@ function Core:InitModule(CONFIG)
                     end
                     entry.frame = data.frame
                     entry.index = i
-                    entry.size = data.size
+                    -- Missing (grayscale) reminders keep the normal ability
+                    -- size; only an active aura gets its configured size.
+                    entry.size = active and data.size or abilitySize
                     entry.active = active
                     entry.remaining = active and remaining or 0
                     entry.start = active and auraStart or 0
@@ -1129,17 +1205,22 @@ function Core:InitModule(CONFIG)
                 else
                     data.frame:Hide()
                     IconStopBlink(data.frame)
-                    if data.frame.cooldownFrame then
-                        data.frame.cooldownFrame:Hide()
+                    if data.frame.sweepFrames then
+                        SweepHide(data.frame)
                     end
                 end
             end
 
             if count > 0 then
-                local signature = 0
+                -- Signature includes each entry's current size so a swap
+                -- between an active (sized) icon and a normal-size grayscale
+                -- reminder still triggers a relayout.
+                local sigParts = {}
                 for i = 1, count do
-                    signature = signature * 64 + activeAbilities[i].index
+                    local e = activeAbilities[i]
+                    sigParts[i] = e.index .. ":" .. (e.size or 0)
                 end
+                local signature = table.concat(sigParts, ",")
                 local relayout = (signature ~= lastAbilitySignature)
                 lastAbilitySignature = signature
 
@@ -1161,6 +1242,9 @@ function Core:InitModule(CONFIG)
 
                     if relayout then
                         local s = entry.size or abilitySize
+                        if frame.rtSize ~= s then
+                            frame:SetIconSize(s)
+                        end
                         frame:ClearAllPoints()
                         frame:SetPoint("BOTTOM", mainFrame, "TOP", cursorX + s / 2, rowBottom)
                         cursorX = cursorX + s + spacing
@@ -1208,15 +1292,15 @@ function Core:InitModule(CONFIG)
                     end
 
                     -- Clock sweep for the buff/debuff duration
-                    if frame.cooldownFrame then
+                    if frame.sweepFrames then
                         if entry.active and entry.duration > 0 then
-                            frame.cooldownFrame:Show()
+                            SweepShow(frame)
                             if frame.rtStart ~= entry.start or frame.rtDuration ~= entry.duration then
                                 frame.rtStart, frame.rtDuration = entry.start, entry.duration
-                                frame.cooldownFrame:SetCooldown(entry.start, entry.duration)
+                                SweepSet(frame, entry.start, entry.duration)
                             end
                         else
-                            frame.cooldownFrame:Hide()
+                            SweepHide(frame)
                             frame.rtStart, frame.rtDuration = 0, 0
                         end
                     end
@@ -1498,6 +1582,17 @@ function Core:InitModule(CONFIG)
             else
                 print(PREFIX .. ": Usage: /tracker scale <0.5-2.0>")
             end
+        elseif msg == "sweep" then
+            -- Opacity of the top-to-bottom cooldown shade. Higher = darker,
+            -- more visible sweep (3.3.5 exposes no colour API for it).
+            local layers = tonumber(strmatch(msg, "sweep (%d+)"))
+            if layers then
+                db.swipeLayers = math.max(1, math.min(4, layers))
+                BuildUI(true); UpdateUI()
+                print(PREFIX .. ": Sweep shade set to " .. db.swipeLayers)
+            else
+                print(PREFIX .. ": Usage: /tracker sweep <1-4> (current: " .. tostring(db.swipeLayers) .. ")")
+            end
         elseif msg == "debugglow" then
             print(PREFIX .. " Glow Debug:|r")
             print("  In combat: " .. tostring(UnitAffectingCombat("player")))
@@ -1534,7 +1629,7 @@ function Core:InitModule(CONFIG)
             end)
         else
             print(PREFIX .. " Commands:|r")
-            print("  /tracker lock | unlock | reset | rebuild | force | debug | debugauras | scale <n>")
+            print("  /tracker lock | unlock | reset | rebuild | force | debug | debugauras | scale <n> | sweep <1-4>")
         end
     end
 

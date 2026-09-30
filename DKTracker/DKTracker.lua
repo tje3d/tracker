@@ -16,8 +16,8 @@ TrackerCore:RegisterModule({
     className = "DEATHKNIGHT",
     printColor = "|cffc41e3a",
 
-    -- 16 cooldowns = exactly two rows of 8, most-used first so the top row is
-    -- the one that matters at a glance. Every entry is filtered through
+    -- 15 cooldowns = two rows of 8 (second row wraps at 7), most-used first so
+    -- the top row is the one that matters at a glance. Every entry is filtered through
     -- IsSpellKnown, so talents from a tree this character has not specced into
     -- simply never appear; keeping cross-tree entries is harmless and the list
     -- still works after a respec.
@@ -30,7 +30,6 @@ TrackerCore:RegisterModule({
         { name = "Empower Rune Weapon", icon = "Interface\\Icons\\Spell_DeathKnight_EmpowerRuneWeapon", glowWhenReady = true },
         { name = "Summon Gargoyle",     icon = "Interface\\Icons\\Spell_DeathKnight_SummonGargoyle",    glowWhenReady = true },
         { name = "Army of the Dead",    icon = "Interface\\Icons\\Spell_DeathKnight_ArmyOfTheDead",     glowWhenReady = true },
-        { name = "Chains of Ice",       icon = "Interface\\Icons\\Spell_Frost_ChainsOfIce" },
         { name = "Strangulate",         icon = "Interface\\Icons\\Spell_DeathKnight_Strangulate" },
         { name = "Death Coil",          icon = "Interface\\Icons\\Spell_Shadow_DeathCoil" },
         { name = "Raise Dead",          icon = "Interface\\Icons\\Spell_DeathKnight_RaiseDead" },

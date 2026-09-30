@@ -71,7 +71,8 @@ Add a new class by dropping in a single table — no engine changes required.
   `IsSpellKnown`, so talents you never specced simply never appear — and the
   list survives a respec. One Fire/Arcane mage module, one Affliction/Destro/Demo
   warlock module.
-- **Smart auras.** DoTs and debuffs show on the target with a clock sweep.
+- **Smart auras.** DoTs and debuffs show on the target with a top-to-bottom
+  cooldown sweep (ElvUI nameplate style).
   `playerOnly` entries only count *your* copy, so another caster's Corruption
   or Serpent Sting never reads as yours.
 - **Upkeep reminders.** Maintained effects (`alwaysVisible`) stay in the row and
@@ -138,6 +139,7 @@ Everything is under the single `/tracker` command:
 | `/tracker debug` | Print known spells / spell IDs / resource values |
 | `/tracker debugauras` | Dump your auras and what the tracker sees |
 | `/tracker debugglow` | Show cooldown/glow timing |
+| `/tracker sweep <1-4>` | Set how dark the cooldown shade is |
 | `/tracker` | Show the command help |
 
 ## Adding a class

@@ -51,13 +51,13 @@ TrackerCore:RegisterModule({
         -- as active - a second warlock's Corruption/UA/curse is not our damage.
         { name = "Unstable Affliction",  icon = "Interface\\Icons\\Spell_Shadow_UnstableAffliction_3", size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Corruption",           icon = "Interface\\Icons\\Spell_Shadow_AbominationExplosion", size = 46, alwaysVisible = true, playerOnly = true },
+        { name = "Haunt",                icon = "Interface\\Icons\\Ability_Warlock_Haunt",             size = 46, alwaysVisible = true, playerOnly = true },
         -- Only one curse can be active, so they form a group: whichever is up
         -- is shown, the rest are hidden; all show grayscale when none is up.
         { name = "Curse of Agony",       icon = "Interface\\Icons\\Spell_Shadow_CurseOfSargeras",      size = 46, alwaysVisible = true, group = "curse", playerOnly = true },
         { name = "Curse of the Elements",icon = "Interface\\Icons\\Spell_Shadow_ChillTouch",          alwaysVisible = true, group = "curse", playerOnly = true },
         { name = "Curse of Doom",        icon = "Interface\\Icons\\Spell_Shadow_CurseOfMannoroth",    alwaysVisible = true, group = "curse", playerOnly = true },
         { name = "Curse of Tongues",     icon = "Interface\\Icons\\Spell_Shadow_CurseOfTounges",       alwaysVisible = true, group = "curse", playerOnly = true },
-        { name = "Haunt",                icon = "Interface\\Icons\\Ability_Warlock_Haunt",             size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Siphon Life",          icon = "Interface\\Icons\\Spell_Shadow_Requiem",              playerOnly = true },
         { name = "Seed of Corruption",   icon = "Interface\\Icons\\Spell_Shadow_SeedOfDestruction",    playerOnly = true },
         -- Nightfall makes the next Shadow Bolt instant; the proc is "Shadow Trance".
@@ -81,8 +81,10 @@ TrackerCore:RegisterModule({
         -- Glyph of Life Tap leaves a "Life Tap" buff (63321) that boosts spell power.
         { name = "Life Tap",             spellID = 63321, icon = "Interface\\Icons\\Spell_Shadow_BurningSpirit", alwaysVisible = true },
         { name = "Soul Link",            icon = "Interface\\Icons\\Spell_Shadow_GrimWard" },
-        { name = "Fel Armor",            icon = "Interface\\Icons\\Spell_Shadow_FelArmour" },
-        { name = "Demon Armor",          icon = "Interface\\Icons\\Spell_Shadow_RagingScream" },
+        -- Fel/Demon Armor are mutually exclusive, so they form a group: the one
+        -- that is up is shown, and the rest show grayscale when neither is up.
+        { name = "Fel Armor",            icon = "Interface\\Icons\\Spell_Shadow_FelArmour",   alwaysVisible = true, group = "armor" },
+        { name = "Demon Armor",          icon = "Interface\\Icons\\Spell_Shadow_RagingScream", alwaysVisible = true, group = "armor" },
         { name = "Shadow Ward",          icon = "Interface\\Icons\\Spell_Shadow_AntiShadow" }
     },
 
