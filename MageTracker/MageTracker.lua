@@ -1,14 +1,8 @@
 --[[--------------------------------------------------------------------------
     MageTracker - WotLK 3.3.5a (Fire & Arcane)
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine lives in TrackerCore. Fire and Arcane share one module because every
-    entry is filtered through IsSpellKnown, so only the talents this character
-    actually has ever appear. Layout (top to bottom):
-      1. Abilities (procs, self buffs & target debuffs, only when active)
-      2. Cooldowns (8 per row, wraps)
-    No mana bar (per request) and no secondary row (no combo-point style
-    resource).
+    Class config for TrackerCore. Layout top to bottom: abilities, cooldowns.
+    Fire and Arcane share one module; IsSpellKnown hides untalented entries.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -34,13 +28,10 @@ TrackerCore:RegisterModule({
     abilities = {
         -- Fire
         { name = "Hot Streak!",     icon = "Interface\\Icons\\Spell_Fire_FlameBolt", alwaysShow = true },
-        -- Same +5% spell crit debuff either way: a warlock's Improved Shadow
-        -- Bolt applies "Shadow Mastery" (17800), so show this icon when either
-        -- one is on the target.
+        -- Same +5% crit debuff as a warlock's Shadow Mastery (17800).
         { name = "Improved Scorch", icon = "Interface\\Icons\\Spell_Fire_SoulBurn", alwaysShow = true,
           altAuras = { { name = "Shadow Mastery", spellID = 17800 } } },
-        -- playerOnly: these land on the target, so only OUR copy should read as
-        -- active - another mage's Living Bomb/Ignite is not our damage.
+        -- playerOnly: only our own Living Bomb / Ignite counts.
         { name = "Living Bomb",     icon = "Interface\\Icons\\Ability_Mage_LivingBomb", playerOnly = true },
         { name = "Ignite",          icon = "Interface\\Icons\\Spell_Fire_Incinerate", alwaysShow = true, playerOnly = true },
         { name = "Combustion",      icon = "Interface\\Icons\\Spell_Fire_SealOfFire" },
@@ -72,9 +63,5 @@ TrackerCore:RegisterModule({
     blinkThreshold = 5,
     point = { "CENTER", 0, -100 },
     scale = 1.0,
-    locked = false,
-
-    -- No resource bar for the mage HUD.
-
-    debugSpells = { "Arcane Power", "Combustion", "Pyroblast", "Pushing the Limit", "Arcane Blast" }
+    locked = false
 })

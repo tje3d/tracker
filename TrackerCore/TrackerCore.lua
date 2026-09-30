@@ -1,24 +1,19 @@
 --[[--------------------------------------------------------------------------
     TrackerCore - WotLK 3.3.5a
 
-    Shared engine + class-module loader for the class trackers
-    (RogueTracker, DKTracker, and any future ones).
+    Shared engine for the class trackers. Each <Class>Tracker is a separate
+    LoadOnDemand addon that only calls TrackerCore:RegisterModule(config).
+    Everything else lives here: spellbook scanning, aura lookup, the icon
+    factory, glow/blink, layout, the refresh loop and /tracker.
 
-    Each class module is a separate addon that only ships a CONFIG table and
-    calls TrackerCore:RegisterModule(config). This file owns everything else:
-    spellbook scanning, aura lookup, icon factory, the shared glow/blink
-    drivers, layout, the 10 Hz refresh loop, events and slash commands.
-
-    The loader picks the module matching the player's class at PLAYER_LOGIN
-    and LoadAddOn()s it, so rogue code only ever runs on rogues, DK code only
-    on death knights, and so on. Add new classes to MODULES below.
+    Add new classes to MODULES below.
 --------------------------------------------------------------------------]]
 
 local CORE_NAME = "TrackerCore"
 local Core = CreateFrame("Frame")
 _G[CORE_NAME] = Core
 
--- class token -> module addon folder name. Extend this when adding a tracker.
+-- class token -> module addon name
 local MODULES = {
     ROGUE       = "RogueTracker",
     DEATHKNIGHT = "DKTracker",
@@ -30,9 +25,8 @@ local MODULES = {
     DRUID       = "DruidTracker"
 }
 
--- Buffs other classes can put on the player. Shown by every tracker while they
--- are active. alwaysShow because this character cannot learn them, so
--- IsSpellKnown would otherwise never build the icons.
+-- Buffs other classes cast on the player, shown by every tracker.
+-- alwaysShow because we cannot learn them ourselves.
 local COMMON_ABILITIES = {
     { name = "Hand of Freedom",    icon = "Interface\\Icons\\Spell_Holy_SealOfValor",      alwaysShow = true },
     { name = "Hand of Protection", icon = "Interface\\Icons\\Spell_Holy_SealOfProtection", alwaysShow = true },
@@ -47,9 +41,7 @@ Core.loggedIn = false
 
 -- ===========================================================================
 -- SHARED COMMAND
---
--- /tracker forwards to the active class module's handler, so lock/unlock/
--- reset/etc. work the same on every class through one command.
+-- /tracker forwards to the active class module's handler.
 -- ===========================================================================
 function Core:DispatchSlash(msg)
     if self.slashHandler then
@@ -76,30 +68,22 @@ end
 -- ===========================================================================
 -- THE ENGINE
 --
--- config schema (all sizes default where noted):
---   addonName, dbName, className, printColor (command is shared: /tracker)
---   cooldowns, abilities. Any entry may add size = N
---   for a bigger icon, spellID = N to also match the aura by ID (and for
---   reliable icon lookup), alwaysShow = true
---   when it is a proc aura rather than a learnable spell, or showCount = true
---   to print the aura's stack count in the corner. Abilities may also add
---   altAuras = { { name, spellID }, ... } for other classes' auras that have
---   the identical effect (e.g. a warlock's Shadow Mastery for Improved Scorch)
---   or alwaysVisible = true to keep the icon in the row even while the aura is
---   down, drawn desaturated as a missing/upkeep reminder, playerOnly = true to
---   match only auras cast by the player (so another caster's copy of a DoT on
---   the target is never mistaken for yours), and group = "name" for
---   mutually-exclusive auras (only the active member of a group is shown)
+-- config:
+--   addonName, dbName, className, printColor
+--   cooldowns, abilities (see entry options below)
 --   iconSize, abilityIconSize, spacing, maxCooldownsPerRow
---   point, scale, locked, blinkThreshold
---   swipeLayers = opacity of the top-to-bottom cooldown shade on every icon
---                 (default 2; higher = darker)
---   resource  = optional: { powerType, dynamicMax, max, color, height }
---   secondary = optional: { type = "combo"|"rune", count, height, color,
---                 colors, dim, fallbackType, order }
---   warning   = optional: { type = "poison"|"upkeep"|"auras",
---                 name, text, prefix, auras = { {name, text}, ... } }
---   debugSpells, debugExtra
+--   point, scale, locked, blinkThreshold, swipeLayers
+--   resource, secondary, warning
+--
+-- entry options:
+--   size          bigger icon
+--   spellID       match the aura by ID
+--   alwaysShow    build a proc aura that is not in the spellbook
+--   showCount     show the aura stack count
+--   altAuras      another class's aura with the same effect
+--   alwaysVisible keep the slot while missing, drawn grey
+--   playerOnly    only count auras you cast
+--   group         mutually-exclusive auras; only the active one shows
 -- ===========================================================================
 function Core:InitModule(CONFIG)
     if self.initialized[CONFIG.addonName] then return end
@@ -114,13 +98,9 @@ function Core:InitModule(CONFIG)
 
     -- =======================================================================
     -- DATABASE
-    --
-    -- The store lives in TrackerCoreDB, which is declared by the always-loaded
-    -- core. SavedVariables owned by a LoadOnDemand addon are not reliably
-    -- restored before that addon's code runs, which is why a module's own
-    -- variable (RogueTrackerDB/DKTrackerDB) lost the saved position every
-    -- login. On first run the old per-module variable is adopted as-is so
-    -- existing setups keep their position, scale and lock state.
+    -- Saved in TrackerCoreDB. A LoadOnDemand addon's own saved variables are
+    -- not ready early enough, so we adopt the old per-module table on first
+    -- run to keep existing position/scale/lock.
     -- =======================================================================
     local db
     local function InitializeDB()
@@ -134,16 +114,13 @@ function Core:InitModule(CONFIG)
         db.point = db.point or { CONFIG.point[1], CONFIG.point[2], CONFIG.point[3] }
         db.scale = db.scale or CONFIG.scale
         db.locked = db.locked or CONFIG.locked
-        if db.forceShow == nil then db.forceShow = false end
         if db.swipeLayers == nil then db.swipeLayers = CONFIG.swipeLayers or 2 end
     end
 
     -- =======================================================================
-    -- SPELLBOOK SCANNING (4 methods, very robust)
-    --
-    -- PERF: full spellbook scans and 120-slot action bar scans are hoisted
-    -- into name sets built at most once per generation and every answer is
-    -- memoized, so a rebuild costs one pass no matter how many spells.
+    -- SPELLBOOK SCANNING
+    -- Spellbook and action bar are scanned once per generation, then every
+    -- answer is cached.
     -- =======================================================================
     local spellbookNames
     local actionBarNames
@@ -186,7 +163,6 @@ function Core:InitModule(CONFIG)
 
     local function IsSpellKnown(spellName)
         if not spellName or spellName == "" then return false end
-        if db and db.forceShow then return true end
 
         if knownGen[spellName] == knownGeneration then
             return knownVal[spellName]
@@ -194,11 +170,11 @@ function Core:InitModule(CONFIG)
 
         local known
 
-        -- Method 1: Scan spellbook by name
+        -- 1: spellbook by name
         if GetSpellbookNames()[spellName] then
             known = true
         else
-            -- Method 2: Get spell ID via GetSpellInfo, then IsSpellKnown/IsPlayerSpell
+            -- 2: IsSpellKnown/IsPlayerSpell via the spell ID
             known = false
             local _, _, spellID = GetSpellInfo(spellName)
             if spellID then
@@ -209,12 +185,12 @@ function Core:InitModule(CONFIG)
                 end
             end
 
-            -- Method 3: Check action bars
+            -- 3: action bars
             if not known and GetActionBarNames()[spellName] then
                 known = true
             end
 
-            -- Method 4: GetSpellCooldown returns valid data only for known spells
+            -- 4: GetSpellCooldown only returns data for known spells
             if not known then
                 local ok, start, duration, enabled = pcall(GetSpellCooldown, spellName)
                 if ok and start and duration and enabled ~= nil then
@@ -228,18 +204,14 @@ function Core:InitModule(CONFIG)
         return known
     end
 
-    -- An entry may set alwaysShow when it is a proc aura rather than a
-    -- learnable spell (set bonuses, talent procs). Those are not in the
-    -- spellbook, so IsSpellKnown misses them and the icon would never be
-    -- built. It is still only shown while its aura is actually active.
+    -- alwaysShow: procs and set bonuses that are not in the spellbook.
     local function IsTracked(data)
         return data.alwaysShow or IsSpellKnown(data.name)
     end
 
-    -- Cheap signature of exactly which tracked spells exist right now so an
-    -- unchanged rebuild can be skipped entirely.
+    -- Signature of the currently-known spells, so an unchanged rebuild is skipped.
     local function ComputeKnownSignature()
-        local signature = (db and db.forceShow) and 1 or 0
+        local signature = 0
 
         local list = CONFIG.cooldowns
         for i = 1, #list do
@@ -264,9 +236,8 @@ function Core:InitModule(CONFIG)
         return known
     end
 
-    -- Safe icon texture lookup: dynamic first (spellID when given, else name),
-    -- hardcoded second, fallback last. Entries may set fixedIcon = true to
-    -- force their hardcoded icon when the client/DBC reports a wrong one.
+    -- Icon lookup: spell texture first, then the hardcoded path. fixedIcon
+    -- skips the lookup for spells the client reports wrongly.
     local function GetIconTexture(data)
         if data.fixedIcon and data.icon and data.icon ~= "" then
             return data.icon
@@ -296,7 +267,8 @@ function Core:InitModule(CONFIG)
     local lastBuildSignature = -1
 
     -- =======================================================================
-    -- SHARED PROC GLOW DRIVER (single OnUpdate for every glowing icon)
+    -- PROC GLOW
+    -- One OnUpdate drives every glowing icon.
     -- =======================================================================
     local GLOW_ALPHA_INTERVAL = 1 / 30
     local glowActive, glowActiveCount = {}, 0
@@ -392,10 +364,8 @@ function Core:InitModule(CONFIG)
     end
 
     -- =======================================================================
-    -- SHARED ABILITY BLINK DRIVER
-    --
-    -- Abilities under BLINK_THRESHOLD seconds pulse their icon alpha through a
-    -- single shared OnUpdate. Nothing runs unless at least one is expiring.
+    -- ABILITY BLINK
+    -- Abilities under blinkThreshold pulse through one shared OnUpdate.
     -- =======================================================================
     local blinkActive, blinkActiveCount = {}, 0
     local blinkDriver
@@ -476,9 +446,7 @@ function Core:InitModule(CONFIG)
     -- =======================================================================
     -- ICON FACTORY
     -- =======================================================================
-    -- Resize an existing icon in place. The texture, overlay, glow and sweep
-    -- layers all use SetAllPoints/relative anchors, so only the frame and the
-    -- border texture need to be resized.
+    -- Only the frame and border need resizing; everything else is anchored.
     local function IconSetSize(self, size)
         self.rtSize = size
         self:SetSize(size, size)
@@ -501,9 +469,7 @@ function Core:InitModule(CONFIG)
         tex:SetPoint("BOTTOMRIGHT", -1, 1)
         f.texture = tex
 
-        -- Text and gold border sit on a frame above the cooldown sweep
-        -- (created just below at frameLevel+1); otherwise the clock hand
-        -- draws over the timer.
+        -- Text and border sit above the sweep so it never covers the timer.
         local overlay = CreateFrame("Frame", nil, f)
         overlay:SetAllPoints(f)
         overlay:SetFrameLevel(f:GetFrameLevel() + 2)
@@ -513,8 +479,7 @@ function Core:InitModule(CONFIG)
         text:SetTextColor(1, 1, 1)
         f.text = text
 
-        -- Small stack counter, bottom-right corner. Only used by abilities
-        -- that ask for it (data.showCount).
+        -- Stack counter, bottom-right. Only abilities with showCount use it.
         local countText = overlay:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         countText:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -1, 2)
         countText:SetTextColor(1, 1, 1)
@@ -531,12 +496,10 @@ function Core:InitModule(CONFIG)
         border:Hide()
         f.border = border
 
-        -- Cooldown sweep, ElvUI nameplate style: a vertical bar whose dark
-        -- shade descends from the top of the icon as the timer runs out. The
-        -- status bar's (transparent) fill marks the time left; the shade hangs
-        -- from the icon's top edge down to the top of that fill, so it grows
-        -- downward. swipeLayers only controls how opaque the shade is, since
-        -- 3.3.5 exposes no colour/texture API for the native Cooldown widget.
+        -- Cooldown sweep (ElvUI nameplate style): a vertical bar whose dark
+        -- shade descends from the top as the timer runs out. swipeLayers only
+        -- sets the shade opacity; 3.3.5 has no color API for the native
+        -- Cooldown widget.
         local layers = db.swipeLayers or 2
         if layers < 1 then layers = 1 end
 
@@ -556,8 +519,7 @@ function Core:InitModule(CONFIG)
         shade:SetPoint("BOTTOMRIGHT", sweep:GetStatusBarTexture(), "TOPRIGHT", 0, 0)
         sweep.shade = shade
 
-        -- Advance the fill every frame; a StatusBar, unlike the old Cooldown
-        -- widget, does not animate on its own.
+        -- A StatusBar does not animate on its own, so advance it every frame.
         sweep:SetScript("OnUpdate", function(self)
             local start, duration = self.startTime, self.duration
             if not start or not duration or duration <= 0 then return end
@@ -577,8 +539,7 @@ function Core:InitModule(CONFIG)
         return f
     end
 
-    -- Point every sweep at a new start/duration. The OnUpdate set on each
-    -- sweep reads these fields and drives the vertical fill.
+    -- The sweep OnUpdate reads these fields to drive the fill.
     local function SweepSet(frame, start, duration)
         local frames = frame.sweepFrames
         for i = 1, #frames do
@@ -642,9 +603,7 @@ function Core:InitModule(CONFIG)
             db.point = { point, x, y }
         end)
 
-        -- Warning bar (poison or missing upkeep) - optional. Created once and
-        -- re-anchored at the end of the content by BuildUI; hidden while
-        -- nothing is wrong.
+        -- Optional warning bar; re-anchored under the content by BuildUI.
         if CONFIG.warning then
             local warn = CreateFrame("Frame", nil, mainFrame)
             warn:SetSize(rowWidth, 16)
@@ -711,10 +670,8 @@ function Core:InitModule(CONFIG)
         local rowWidth = GetRowWidth()
         local currentY = startY
 
-        -- ===== 1. Abilities (fixed space reserved; positioned dynamically) =====
-        -- An ability may ask for a bigger icon via data.size (important
-        -- debuffs/buffs). Reserve the tallest so the row never overlaps what
-        -- comes after it.
+        -- Reserve the tallest ability size so the row never overlaps the
+        -- sections below; the icons themselves are positioned dynamically.
         local abilityRowHeight = 0
         for _, data in ipairs(CONFIG.abilities) do
             local s = data.size or abilitySize
@@ -725,7 +682,7 @@ function Core:InitModule(CONFIG)
         elements.abilityRowHeight = abilityRowHeight
         currentY = currentY - abilityRowHeight - 5
 
-        -- ===== 2. Resource bar (energy / runic power / mana) - optional =====
+        -- Resource bar (optional)
         local res = CONFIG.resource
         if res then
             local barHeight = res.height or 18
@@ -764,7 +721,7 @@ function Core:InitModule(CONFIG)
             currentY = currentY - barHeight - 5
         end
 
-        -- ===== 3. Secondary row (combo points / runes) - optional =====
+        -- Secondary row: combo points or runes (optional)
         local sec = CONFIG.secondary
         if sec then
             local secCount = sec.count
@@ -790,13 +747,13 @@ function Core:InitModule(CONFIG)
                 local fill = slot:CreateTexture(nil, "ARTWORK")
                 local cdText
                 if sec.type == "rune" then
-                    -- Rune: left-anchored bar whose width is driven from UpdateUI
+                    -- Width is driven from UpdateUI.
                     fill:SetPoint("TOPLEFT", 1, -1)
                     fill:SetPoint("BOTTOMLEFT", 1, 1)
                     fill:SetTexture(1, 1, 1)
                     fill:SetWidth(0)
 
-                    -- Seconds remaining while the rune recharges (no sweep).
+                    -- Recharge seconds.
                     cdText = slot:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
                     cdText:SetPoint("CENTER", slot, "CENTER", 0, 0)
                     cdText:SetTextColor(1, 1, 1)
@@ -823,10 +780,10 @@ function Core:InitModule(CONFIG)
     -- =======================================================================
     -- BUILD UI
     -- =======================================================================
-    local function BuildUI(force)
+    local function BuildUI()
         InvalidateSpellKnowledge()
         local signature = ComputeKnownSignature()
-        if not force and mainFrame and signature == lastBuildSignature then
+        if mainFrame and signature == lastBuildSignature then
             return
         end
         lastBuildSignature = signature
@@ -838,7 +795,7 @@ function Core:InitModule(CONFIG)
 
         local currentY = BuildTopSection(0)
 
-        -- ===== Create ALL ability icons (hidden; positioned dynamically) =====
+        -- Build every ability icon up front; they stay hidden until active.
         local function BuildAbility(data)
             if IsTracked(data) then
                 local icon = CreateIcon(mainFrame, data.size or CONFIG.abilityIconSize)
@@ -854,16 +811,13 @@ function Core:InitModule(CONFIG)
         end
 
         for _, data in ipairs(CONFIG.abilities) do BuildAbility(data) end
-        -- Shared external buffs, shown on every tracker.
         for _, data in ipairs(COMMON_ABILITIES) do BuildAbility(data) end
 
-        -- ===== Cooldowns =====
         local cdRows = BuildIconGrid(CONFIG.cooldowns, currentY, elements.cooldowns, CONFIG.maxCooldownsPerRow)
         if cdRows > 0 then
             currentY = currentY - cdRows * (size + spacing) - 5
         end
 
-        -- ===== Warning (anchored under everything else) =====
         if mainFrame.warn then
             mainFrame.warn:ClearAllPoints()
             mainFrame.warn:SetPoint("TOP", mainFrame, "TOP", 0, currentY)
@@ -885,9 +839,8 @@ function Core:InitModule(CONFIG)
 
     -- =======================================================================
     -- AURA LOOKUP
-    --
-    -- Each unit is scanned once per refresh into reusable tables (no
-    -- allocation), then every tracked spell is a table lookup.
+    -- Each unit is scanned once per refresh into reusable tables, then every
+    -- tracked spell is a plain table lookup.
     -- =======================================================================
     local AURA_SCAN_LIMIT = 40
     local PERMANENT_REMAINING = math.huge
@@ -919,9 +872,7 @@ function Core:InitModule(CONFIG)
         end
         cache.count = 0
 
-        -- Auras are also indexed by their spell ID so entries can match a
-        -- specific rank/effect (e.g. Arcane Blast's stacking debuff 36032)
-        -- instead of relying on the displayed name.
+        -- Also indexed by spell ID, so an entry can match a specific rank.
         local idSeen = cache.idSeen
         local idRemaining, idStart = cache.idRemaining, cache.idStart
         local idDuration, idStacks, idCaster = cache.idDuration, cache.idStacks, cache.idCaster
@@ -947,15 +898,13 @@ function Core:InitModule(CONFIG)
                 rem = expiration - auraNow
                 auraStart = expiration - timed
             else
-                -- Permanent aura (e.g. Stealth): no clock, always active.
+                -- No duration (e.g. Stealth): always active, no clock.
                 rem = PERMANENT_REMAINING
                 auraStart = 0
             end
             local count = auraCount or 0
-            -- The same spell can be present from several casters (two
-            -- warlocks' Corruption on one target). Keep the player's own
-            -- copy, so entries with playerOnly never mistake someone else's
-            -- DoT for ours.
+            -- The same spell can be on the target from several casters. Keep
+            -- our own copy when we can.
             local preferPlayer = (auraCaster == "player") and (remaining[name] ~= nil) and (caster[name] ~= "player")
 
             if remaining[name] == nil then
@@ -985,11 +934,9 @@ function Core:InitModule(CONFIG)
         end
     end
 
-    -- playerOnly: when true, only an aura whose caster is the player matches.
-    -- Used for the warlock's damage-over-time debuffs, so another caster's
-    -- Corruption/Unstable Affliction/Curse of Agony never reads as ours.
+    -- playerOnly: only match an aura the player cast.
     local function LookupAura(cache, spellName, spellID, playerOnly)
-        -- Prefer an explicit spell ID when the entry supplies one.
+        -- Prefer the spell ID when the entry gives one.
         if spellID then
             local remaining = cache.idRemaining[spellID]
             if remaining ~= nil and not (playerOnly and cache.idCaster[spellID] ~= "player") then
@@ -1016,8 +963,7 @@ function Core:InitModule(CONFIG)
             CollectAuras(playerHelpful, "player", "HELPFUL")
             CollectAuras(playerHarmful, "player", "HARMFUL")
         end
-        -- Buffs first, then debuffs, so a spell an effect is tracked whether
-        -- the client files it as helpful or harmful on the player.
+        -- Buffs first, then debuffs.
         local found, remaining, auraStart, auraDuration, auraCount =
             LookupAura(playerHelpful, spellName, spellID, playerOnly)
         if found then return found, remaining, auraStart, auraDuration, auraCount end
@@ -1036,11 +982,8 @@ function Core:InitModule(CONFIG)
         return LookupAura(targetHarmful, spellName, spellID, playerOnly)
     end
 
-    -- An ability may list altAuras = { { name, spellID }, ... }: other auras
-    -- that grant the exact same effect even though a different class cast them
-    -- (e.g. a warlock's "Shadow Mastery" debuff gives the same +5% spell crit
-    -- as a mage's "Improved Scorch", so one icon can stand in for both). The
-    -- primary aura is checked first, then every alternate; first match wins.
+    -- altAuras: other auras with the same effect from other classes.
+    -- Primary aura first, then each alternate; first match wins.
     local function FindAbilityAura(data)
         local playerOnly = data.playerOnly
         local found, remaining, auraStart, auraDuration, auraCount =
@@ -1072,7 +1015,7 @@ function Core:InitModule(CONFIG)
         auraNow = nowTime
         auraPlayerReady, auraTargetReady = false, false
 
-        -- Cooldowns (GCD filtered, with proc glow + clock sweep)
+        -- Cooldowns (GCD filtered)
         local inCombat = UnitAffectingCombat("player")
         local cooldowns = elements.cooldowns
         for i = 1, #cooldowns do
@@ -1098,12 +1041,9 @@ function Core:InitModule(CONFIG)
                     data.rtDimmed = true
                     frame.texture:SetVertexColor(0.5, 0.5, 0.5)
                 end
-                -- A real cooldown's remaining time ticks down every refresh.
-                -- A few spells report a frozen one (Raise Dead while the ghoul
-                -- is up sits at a constant 30s): show the number, but never
-                -- start a sweep for something that is not counting down, and
-                -- never restart a running sweep (jitter made it creep forward
-                -- and snap back).
+                -- Some spells report a frozen cooldown (e.g. Raise Dead while
+                -- the ghoul is up). Show the number, but only sweep while it
+                -- is actually counting down.
                 local prevRemaining = data.rtLastRemaining
                 local ticking = (prevRemaining ~= nil) and (remaining < prevRemaining - 0.05)
 
@@ -1156,15 +1096,14 @@ function Core:InitModule(CONFIG)
             end
         end
 
-        -- Abilities - ACTIVE ones (plus alwaysVisible reminders) CENTERED
+        -- Abilities: active ones plus alwaysVisible reminders, centred
         do
             local abilitySize = CONFIG.abilityIconSize
             local spacing = CONFIG.spacing
             local count = 0
 
-            -- Mutually-exclusive groups (e.g. a warlock's curses, only one of
-            -- which can be up at a time). When any member of a group is active
-            -- the other members are hidden, even if they are alwaysVisible.
+            -- Mutually-exclusive groups (e.g. curses). If one member is up,
+            -- the others stay hidden even when alwaysVisible.
             local activeGroups = {}
             for i = 1, #elements.abilities do
                 local data = elements.abilities[i]
@@ -1182,8 +1121,7 @@ function Core:InitModule(CONFIG)
                 local active = found and remaining > 0
                 local suppressed = data.group and activeGroups[data.group] and not active
 
-                -- alwaysVisible abilities keep their slot even while the aura
-                -- is down, so they render desaturated as a "missing" reminder.
+                -- alwaysVisible keeps its slot while down, drawn grey.
                 if (active or data.alwaysVisible) and not suppressed then
                     count = count + 1
                     local entry = activeAbilities[count]
@@ -1193,8 +1131,7 @@ function Core:InitModule(CONFIG)
                     end
                     entry.frame = data.frame
                     entry.index = i
-                    -- Missing (grayscale) reminders keep the normal ability
-                    -- size; only an active aura gets its configured size.
+                    -- Only an active aura takes its configured size.
                     entry.size = active and data.size or abilitySize
                     entry.active = active
                     entry.remaining = active and remaining or 0
@@ -1212,9 +1149,8 @@ function Core:InitModule(CONFIG)
             end
 
             if count > 0 then
-                -- Signature includes each entry's current size so a swap
-                -- between an active (sized) icon and a normal-size grayscale
-                -- reminder still triggers a relayout.
+                -- Include each size so swapping between a sized active icon
+                -- and a normal grayscale reminder triggers a relayout.
                 local sigParts = {}
                 for i = 1, count do
                     local e = activeAbilities[i]
@@ -1224,8 +1160,7 @@ function Core:InitModule(CONFIG)
                 local relayout = (signature ~= lastAbilitySignature)
                 lastAbilitySignature = signature
 
-                -- Variable-sized icons: centre the row by summing real widths,
-                -- bottom edges aligned so bigger icons grow upward.
+                -- Centre the row by summing real widths; bigger icons grow upward.
                 local rowBottom = (elements.abilityRowY or 0) - (elements.abilityRowHeight or abilitySize)
                 local cursorX
                 if relayout then
@@ -1253,8 +1188,7 @@ function Core:InitModule(CONFIG)
                     frame:Show()
                     frame.border:Hide()
 
-                    -- Active: full colour + timer. Visible-but-missing: grayscale,
-                    -- no timer or clock, so it reads as an upkeep reminder.
+                    -- Active: colour + timer. Missing: grey, no timer or sweep.
                     if entry.active then
                         frame.texture:SetDesaturated(false)
                         frame.texture:SetVertexColor(1, 1, 1)
@@ -1275,7 +1209,7 @@ function Core:InitModule(CONFIG)
                         frame.text:SetText(text)
                     end
 
-                    -- Optional stack count in the corner (data.showCount).
+                    -- Stack count (showCount).
                     if entry.showCount and entry.count and entry.count > 1 then
                         if frame.rtCount ~= entry.count then
                             frame.rtCount = entry.count
@@ -1291,7 +1225,7 @@ function Core:InitModule(CONFIG)
                         frame.countText:Hide()
                     end
 
-                    -- Clock sweep for the buff/debuff duration
+                    -- Sweep for the buff/debuff duration
                     if frame.sweepFrames then
                         if entry.active and entry.duration > 0 then
                             SweepShow(frame)
@@ -1330,7 +1264,7 @@ function Core:InitModule(CONFIG)
             end
         end
 
-        -- Secondary row (combo points / runes) - optional
+        -- Secondary row (optional)
         local sec = CONFIG.secondary
         if sec and sec.type == "rune" then
             local runeColors = sec.colors
@@ -1339,14 +1273,12 @@ function Core:InitModule(CONFIG)
             local runeDim = sec.dim
             for i = 1, sec.count do
                 local rune = elements.secondary[i]
-                -- order maps the on-screen slot to the client's rune index, so a
-                -- fixed layout (blood blood frost frost unholy unholy) renders
-                -- regardless of the client's native slot order.
+                -- order maps the screen slot to a rune index, fixing the layout.
                 local slot = runeOrder and runeOrder[i] or i
                 if rune then
                     local start, duration, ready = GetRuneCooldown(slot)
 
-                    -- Seconds remaining while recharging (number only).
+                    -- Recharge seconds.
                     if rune.cooldownText then
                         if start and not ready and duration and duration > 0 then
                             if not rune.rtCdShown then
@@ -1417,13 +1349,10 @@ function Core:InitModule(CONFIG)
             if warn then
                 local text
                 if CONFIG.warning.type == "upkeep" then
-                    -- Missing while the tracked upkeep buff has actually fallen off
                     local found, remaining = GetPlayerAura(CONFIG.warning.name)
                     text = (found and remaining > 0) and "" or CONFIG.warning.text
                 elseif CONFIG.warning.type == "auras" then
-                    -- Any number of upkeep buffs; names whichever are missing.
-                    -- Entries whose spell is not even known (a talent this
-                    -- character did not take) are skipped.
+                    -- Name every missing upkeep buff; skip spells we don't know.
                     local missing = ""
                     for _, entry in ipairs(CONFIG.warning.auras) do
                         if IsSpellKnown(entry.name) then
@@ -1435,9 +1364,7 @@ function Core:InitModule(CONFIG)
                     end
                     text = (missing ~= "") and ((CONFIG.warning.prefix or "MISSING: ") .. missing) or ""
                 else
-                    -- Poison. GetWeaponEnchantInfo reports the temporary enchant
-                    -- on each weapon; a hand only counts when a weapon is
-                    -- actually equipped there - an empty off-hand needs no poison.
+                    -- Poison. An empty hand needs no poison.
                     local hasMH, _, _, hasOH = GetWeaponEnchantInfo()
                     local missing = ""
                     if not hasMH and GetInventoryItemLink("player", 16) then
@@ -1463,11 +1390,8 @@ function Core:InitModule(CONFIG)
     end
 
     -- =======================================================================
-    -- EVENT HANDLING
-    --
-    -- All aura/combo/rune state is polled at 10 Hz anyway, so UNIT_AURA,
-    -- PLAYER_TARGET_CHANGED and their friends are not registered; the tick is
-    -- the single refresh point. Worst case a change shows 100 ms later.
+    -- EVENTS
+    -- Everything is polled at 10 Hz, so aura/target events are not registered.
     -- =======================================================================
     local UPDATE_INTERVAL = 0.1
     local updateElapsed = 0
@@ -1489,7 +1413,6 @@ function Core:InitModule(CONFIG)
             or event == "PLAYER_TALENT_UPDATE"
             or event == "ACTIONBAR_SLOT_CHANGED"
             or event == "PLAYER_ENTERING_WORLD" then
-            -- BuildUI is a no-op when the known-spell set is unchanged.
             BuildUI(); UpdateUI()
         end
     end
@@ -1509,9 +1432,6 @@ function Core:InitModule(CONFIG)
 
     -- =======================================================================
     -- SLASH COMMAND HANDLER
-    --
-    -- Every class shares the single "/tracker" entry point (registered once by
-    -- the core); this module's handler is what it forwards to.
     -- =======================================================================
     local function HandleSlash(msg)
         msg = string.lower(msg or "")
@@ -1528,114 +1448,12 @@ function Core:InitModule(CONFIG)
             mainFrame:ClearAllPoints()
             mainFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
             print(PREFIX .. ": Position reset.")
-        elseif msg == "rebuild" then
-            BuildUI(true); UpdateUI()
-            print(PREFIX .. ": Rebuilt.")
-        elseif msg == "force" then
-            db.forceShow = not db.forceShow
-            BuildUI(); UpdateUI()
-            print(PREFIX .. ": Force-show " ..
-                (db.forceShow and "|cff00ff00ENABLED|r" or "|cffff0000DISABLED|r"))
-        elseif msg == "debug" then
-            print(PREFIX .. " Debug:|r")
-            for _, name in ipairs(CONFIG.debugSpells or {}) do
-                print("  " .. name .. " known: " .. tostring(IsSpellKnown(name)))
-            end
-            local first = CONFIG.debugSpells and CONFIG.debugSpells[1]
-            if first then
-                local _, _, spellID = GetSpellInfo(first)
-                print("  " .. first .. " spellID: " .. tostring(spellID))
-                local ok, tex = pcall(GetSpellTexture, first)
-                print("  " .. first .. " texture (dynamic): " .. tostring(ok and tex or "FAILED"))
-            end
-            if CONFIG.debugExtra then CONFIG.debugExtra(elements, CONFIG) end
-        elseif msg == "debugauras" then
-            print(PREFIX .. " Player buffs:|r")
-            for i = 1, AURA_SCAN_LIMIT do
-                local name, _, _, count, _, duration, _, _, _, _, spellId =
-                    UnitAura("player", i, "HELPFUL")
-                if not name then break end
-                print(string.format("  [%d] %s  x%d  id=%s  %.1fs",
-                    i, name, count or 0, tostring(spellId), duration or 0))
-            end
-            print(PREFIX .. " Player debuffs:|r")
-            for i = 1, AURA_SCAN_LIMIT do
-                local name, _, _, count, _, duration, _, _, _, _, spellId =
-                    UnitAura("player", i, "HARMFUL")
-                if not name then break end
-                print(string.format("  [%d] %s  x%d  id=%s  %.1fs",
-                    i, name, count or 0, tostring(spellId), duration or 0))
-            end
-            print(PREFIX .. " Tracked abilities:|r")
-            for i = 1, #elements.abilities do
-                local data = elements.abilities[i]
-                local found, remaining = FindAbilityAura(data)
-                print(string.format("  %s (id=%s): found=%s rem=%.1f",
-                    data.name, tostring(data.spellID), tostring(found), remaining or 0))
-            end
-        elseif msg == "scale" then
-            local scale = tonumber(strmatch(msg, "scale (%d+%.?%d*)"))
-            if scale then
-                db.scale = math.max(0.5, math.min(2.0, scale))
-                mainFrame:SetScale(db.scale)
-                print(PREFIX .. ": Scale set to " .. db.scale)
-            else
-                print(PREFIX .. ": Usage: /tracker scale <0.5-2.0>")
-            end
-        elseif msg == "sweep" then
-            -- Opacity of the top-to-bottom cooldown shade. Higher = darker,
-            -- more visible sweep (3.3.5 exposes no colour API for it).
-            local layers = tonumber(strmatch(msg, "sweep (%d+)"))
-            if layers then
-                db.swipeLayers = math.max(1, math.min(4, layers))
-                BuildUI(true); UpdateUI()
-                print(PREFIX .. ": Sweep shade set to " .. db.swipeLayers)
-            else
-                print(PREFIX .. ": Usage: /tracker sweep <1-4> (current: " .. tostring(db.swipeLayers) .. ")")
-            end
-        elseif msg == "debugglow" then
-            print(PREFIX .. " Glow Debug:|r")
-            print("  In combat: " .. tostring(UnitAffectingCombat("player")))
-            print("  Cooldown elements count: " .. #elements.cooldowns)
-            for i, data in ipairs(elements.cooldowns) do
-                if data.glowWhenReady then
-                    local start, duration = GetSpellCooldown(data.name)
-                    local remaining = 0
-                    if start and duration then
-                        remaining = (start + duration) - GetTime()
-                        if remaining <= 2.0 and duration <= 2.0 then remaining = 0 end
-                    end
-                    print(string.format("  [%d] %s  glowWhenReady=%s  remaining=%.2f",
-                        i, data.name, tostring(data.glowWhenReady), remaining))
-                end
-            end
-        elseif msg == "forceglow" then
-            for _, data in ipairs(elements.cooldowns) do
-                if data.frame.StartGlow then
-                    data.frame:StartGlow()
-                end
-            end
-            print(PREFIX .. ": Forced glow on ALL cooldowns for 3 seconds.")
-            local t = 0
-            local f = CreateFrame("Frame")
-            f:SetScript("OnUpdate", function(self, dt)
-                t = t + dt
-                if t >= 3 then
-                    for _, d in ipairs(elements.cooldowns) do
-                        if d.frame.StopGlow then d.frame:StopGlow() end
-                    end
-                    self:SetScript("OnUpdate", nil)
-                end
-            end)
         else
-            print(PREFIX .. " Commands:|r")
-            print("  /tracker lock | unlock | reset | rebuild | force | debug | debugauras | scale <n> | sweep <1-4>")
+            print(PREFIX .. " Commands: /tracker lock | unlock | reset")
         end
     end
 
-    -- Shared "/tracker" entry point forwards to whichever module is active.
     self.slashHandler = HandleSlash
-    self.activePrefix = PREFIX
 
     print(PREFIX .. " loaded. Type /tracker for help.")
 end
@@ -1650,10 +1468,9 @@ local function OnCoreEvent(self, event)
     local _, class = UnitClass("player")
     local config = self.pending[class]
     if config then
-        -- Module was loaded normally; just build it now.
         self:InitModule(config)
     else
-        -- Module is LoadOnDemand: pull in the one for this class.
+        -- LoadOnDemand module: load the one for this class.
         local addon = MODULES[class]
         if addon then
             LoadAddOn(addon)

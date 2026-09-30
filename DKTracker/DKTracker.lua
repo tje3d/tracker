@@ -1,13 +1,8 @@
 --[[--------------------------------------------------------------------------
-    DKTracker - WotLK 3.3.5a (Unholy Death Knight)
+    DKTracker - WotLK 3.3.5a (Unholy)
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine lives in TrackerCore. Layout (top to bottom):
-      1. Abilities (only visible when active on target/player)
-      2. Runic Power bar
-      3. Runes (6 wide rectangles, colored by rune type)
-      4. Cooldowns (8 per row, wraps)
-      5. Missing-upkeep warning (only when Horn of Winter is not up)
+    Class config for TrackerCore. Layout top to bottom:
+      abilities, runic power, runes, cooldowns, Horn of Winter warning.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -16,11 +11,7 @@ TrackerCore:RegisterModule({
     className = "DEATHKNIGHT",
     printColor = "|cffc41e3a",
 
-    -- 15 cooldowns = two rows of 8 (second row wraps at 7), most-used first so
-    -- the top row is the one that matters at a glance. Every entry is filtered through
-    -- IsSpellKnown, so talents from a tree this character has not specced into
-    -- simply never appear; keeping cross-tree entries is harmless and the list
-    -- still works after a respec.
+    -- 15 cooldowns, most-used first. IsSpellKnown hides untalented entries.
     cooldowns = {
         { name = "Mind Freeze",         icon = "Interface\\Icons\\Spell_Frost_MindFreeze",              glowWhenReady = true },
         { name = "Death Grip",          icon = "Interface\\Icons\\Spell_DeathKnight_DeathGrip",         glowWhenReady = true },
@@ -38,15 +29,12 @@ TrackerCore:RegisterModule({
         { name = "Ghoul Frenzy",        icon = "Interface\\Icons\\Ability_GhoulFrenzy" },
         { name = "Hysteria",            icon = "Interface\\Icons\\Spell_DeathKnight_Hysteria" }
     },
-    -- Aura row: only what is actually up on the player or the target is shown,
-    -- with its remaining time and a clock sweep.
+    -- Only shown while up on the player or target.
     abilities = {
         { name = "Blood Presence",   icon = "Interface\\Icons\\Spell_DeathKnight_BloodPresence" },
         { name = "Frost Presence",   icon = "Interface\\Icons\\Spell_DeathKnight_FrostPresence" },
         { name = "Unholy Presence",  icon = "Interface\\Icons\\Spell_DeathKnight_UnholyPresence" },
-        -- playerOnly: these diseases land on the target, so only OUR copy
-        -- should read as active - a second DK's Frost Fever/Blood Plague is
-        -- not our damage.
+        -- playerOnly: only our own disease counts.
         { name = "Frost Fever",      icon = "Interface\\Icons\\Spell_DeathKnight_FrostFever", size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Blood Plague",     icon = "Interface\\Icons\\Spell_DeathKnight_BloodPlague", size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Bone Shield",      icon = "Interface\\Icons\\Spell_DeathKnight_BoneShield", alwaysVisible = true },
@@ -83,32 +71,15 @@ TrackerCore:RegisterModule({
             [4] = { 0.60, 0.30, 0.80 }   -- death: purple
         },
         dim = 0.55,
-        -- Only used when GetRuneType has no answer yet (the client forgets
-        -- death runes across a login). Fixed 3.3.5 layout: rune IDs 1-2 blood,
-        -- 3-4 unholy, 5-6 frost.
+        -- Fallback when GetRuneType has no answer (death runes are forgotten
+        -- across a login). IDs 1-2 blood, 3-4 unholy, 5-6 frost.
         fallbackType = { [1] = 1, [2] = 1, [3] = 2, [4] = 2, [5] = 3, [6] = 3 },
-        -- Draw order left to right: blood, blood, frost, frost, unholy, unholy.
-        -- Each entry is the client rune slot shown in that on-screen position.
+        -- Screen order left to right: blood, blood, frost, frost, unholy, unholy.
         order = { 1, 2, 5, 6, 3, 4 }
     },
     warning = {
         type = "upkeep",
         name = "Horn of Winter",
         text = "MISSING: HORN OF WINTER"
-    },
-
-    debugSpells = { "Summon Gargoyle", "Bone Shield", "Death Grip" },
-    debugExtra = function(elements, CONFIG)
-        print(string.format("  Runic Power: %d / %d",
-            UnitPower("player", 6) or 0, UnitPowerMax("player", 6) or 100))
-        for i = 1, CONFIG.secondary.count do
-            local start, duration, ready = GetRuneCooldown(i)
-            local remaining = 0
-            if start and duration and not ready then
-                remaining = math.max(0, (start + duration) - GetTime())
-            end
-            print(string.format("  Rune [%d] type=%s ready=%s  %.2fs",
-                i, tostring(GetRuneType(i)), tostring(ready), remaining))
-        end
-    end
+    }
 })

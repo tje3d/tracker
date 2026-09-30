@@ -1,12 +1,7 @@
 --[[--------------------------------------------------------------------------
     WarriorTracker - WotLK 3.3.5a (Fury)
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine lives in TrackerCore. Layout (top to bottom):
-      1. Abilities (self buffs/procs & target debuffs, only when active)
-      2. Rage bar
-      3. Cooldowns (8 per row, wraps)
-    No secondary row (no combo-point style resource).
+    Class config for TrackerCore. Layout top to bottom: abilities, rage, cooldowns.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -43,8 +38,7 @@ TrackerCore:RegisterModule({
         { name = "Bloodsurge",      icon = "Interface\\Icons\\Ability_Warrior_Bloodsurge",        alwaysShow = true },
         { name = "Flurry",          icon = "Interface\\Icons\\Ability_GhoulFrenzy",               alwaysShow = true, showCount = true },
         { name = "Rampage",         icon = "Interface\\Icons\\Ability_Warrior_Rampage",           showCount = true },
-        -- playerOnly: this bleed lands on the target, so only OUR copy should
-        -- read as active - another warrior's Deep Wounds is not our damage.
+        -- playerOnly: only our own Deep Wounds counts.
         { name = "Deep Wounds",     icon = "Interface\\Icons\\Ability_BackStab",                  alwaysShow = true, playerOnly = true },
         { name = "Sunder Armor",    icon = "Interface\\Icons\\Ability_Warrior_Sunder",            alwaysShow = true, showCount = true }
     },
@@ -64,11 +58,5 @@ TrackerCore:RegisterModule({
         max = 100,
         color = { 0.85, 0.2, 0.15 },
         height = 18
-    },
-
-    debugSpells = { "Bloodthirst", "Recklessness", "Death Wish" },
-    debugExtra = function()
-        print(string.format("  Rage: %d / %d",
-            UnitPower("player", 1) or 0, UnitPowerMax("player", 1) or 0))
-    end
+    }
 })

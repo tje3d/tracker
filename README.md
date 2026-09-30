@@ -133,13 +133,6 @@ Everything is under the single `/tracker` command:
 | `/tracker unlock` | Unlock the HUD and drag it where you want |
 | `/tracker lock` | Lock it in place and enable click-through |
 | `/tracker reset` | Snap back to the default center position |
-| `/tracker scale <0.5-2.0>` | Resize the whole HUD |
-| `/tracker rebuild` | Rebuild the UI (after a talent/spec change) |
-| `/tracker force` | Toggle force-show for testing every element |
-| `/tracker debug` | Print known spells / spell IDs / resource values |
-| `/tracker debugauras` | Dump your auras and what the tracker sees |
-| `/tracker debugglow` | Show cooldown/glow timing |
-| `/tracker sweep <1-4>` | Set how dark the cooldown shade is |
 | `/tracker` | Show the command help |
 
 ## Adding a class

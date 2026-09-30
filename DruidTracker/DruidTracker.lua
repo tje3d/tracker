@@ -1,11 +1,7 @@
 --[[--------------------------------------------------------------------------
     DruidTracker - WotLK 3.3.5a (Balance)
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine lives in TrackerCore. Layout (top to bottom):
-      1. Abilities (target DoTs/debuffs, self procs & buffs, only when active)
-      2. Cooldowns (8 per row, wraps)
-    No mana bar and no secondary row (no combo-point style resource).
+    Class config for TrackerCore. Layout top to bottom: abilities, cooldowns.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -14,8 +10,7 @@ TrackerCore:RegisterModule({
     className = "DRUID",
     printColor = "|cffff7c0a",
 
-    -- 14 cooldowns, most-used first (8 per row, wraps). Cross-tree entries are
-    -- harmless: IsSpellKnown hides the ones this character never learned.
+    -- 14 cooldowns, most-used first. IsSpellKnown hides untalented entries.
     cooldowns = {
         { name = "Starfall",           icon = "Interface\\Icons\\Ability_Druid_Starfall",           glowWhenReady = true },
         { name = "Force of Nature",    icon = "Interface\\Icons\\Ability_Druid_ForceofNature",      glowWhenReady = true },
@@ -32,18 +27,13 @@ TrackerCore:RegisterModule({
         { name = "Dash",               icon = "Interface\\Icons\\Ability_Druid_Sprint" },
         { name = "Challenging Roar",   icon = "Interface\\Icons\\Ability_Druid_ChallengingRoar" }
     },
-    -- Aura row: everything here is only shown while it is actually up on the
-    -- player or the target, with remaining time and a clock sweep.
+    -- Only shown while up on the player or target.
     abilities = {
-        -- Balance - the maintained target DoTs stay on screen and go grayscale
-        -- while they are missing from the target. playerOnly: these land on the
-        -- target, so only OUR copy should read as active - another druid's
-        -- Moonfire/Insect Swarm is not our damage.
+        -- Maintained target DoTs; greyscale while missing.
+        -- playerOnly: only our own copy counts.
         { name = "Moonfire",        icon = "Interface\\Icons\\Spell_Nature_StarFall",       size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Insect Swarm",    icon = "Interface\\Icons\\Spell_Nature_InsectSwarm",    size = 46, alwaysVisible = true, playerOnly = true },
-        -- Earth and Moon is applied by our Wrath/Starfire; it never appears in
-        -- the spellbook, so alwaysShow builds the icon. It does not deal damage,
-        -- so it is not restricted to our own cast.
+        -- Applied by our Wrath/Starfire, so alwaysShow (not in the spellbook).
         { name = "Earth and Moon",  icon = "Interface\\Icons\\Ability_Druid_EarthandSky",  alwaysShow = true },
         { name = "Faerie Fire",     icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
         -- Eclipse procs (Solar/Lunar) share one talent but are separate auras.
@@ -65,7 +55,5 @@ TrackerCore:RegisterModule({
     blinkThreshold = 5,
     point = { "CENTER", 0, -100 },
     scale = 1.0,
-    locked = false,
-
-    debugSpells = { "Starfall", "Force of Nature", "Typhoon", "Eclipse (Solar)" }
+    locked = false
 })

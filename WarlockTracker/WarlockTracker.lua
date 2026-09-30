@@ -1,16 +1,8 @@
 --[[--------------------------------------------------------------------------
     WarlockTracker - WotLK 3.3.5a (Affliction, Destruction & Demonology)
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine lives in TrackerCore. All three specs share one module because every
-    entry is filtered through IsSpellKnown, so only the talents this character
-    actually has ever appear (and the list survives a respec). Layout (top to
-    bottom):
-      1. Abilities (DoTs/curses on the target, self buffs & procs, only while
-         active)
-      2. Cooldowns (8 per row, wraps)
-    No mana bar (per request) and no secondary row (soul shards are
-    pet-agnostic items, not a tracked power).
+    Class config for TrackerCore. Layout top to bottom: abilities, cooldowns.
+    All three specs share one module; IsSpellKnown hides untalented entries.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -19,8 +11,7 @@ TrackerCore:RegisterModule({
     className = "WARLOCK",
     printColor = "|cff8788ee",
 
-    -- 17 cooldowns, most-used first (8 per row, wraps). Cross-spec entries
-    -- are harmless: IsSpellKnown hides the ones this character never learned.
+    -- 17 cooldowns, most-used first. IsSpellKnown hides untalented entries.
     cooldowns = {
         { name = "Haunt",                   icon = "Interface\\Icons\\Ability_Warlock_Haunt",           glowWhenReady = true },
         { name = "Death Coil",              icon = "Interface\\Icons\\Spell_Shadow_DeathCoil" },
@@ -40,20 +31,15 @@ TrackerCore:RegisterModule({
         { name = "Shadow Ward",             icon = "Interface\\Icons\\Spell_Shadow_AntiShadow" },
         { name = "Soulshatter",             icon = "Interface\\Icons\\Spell_Shadow_SoulLeech" }
     },
-    -- Aura row: everything here is only shown while it is actually up on the
-    -- player or the target, with remaining time and a clock sweep. Entries with
-    -- alwaysShow are procs/effects that are not learnable spells, so
-    -- IsSpellKnown would otherwise never build their icon.
+    -- Only shown while up on the player or target. alwaysShow builds procs
+    -- that are not in the spellbook.
     abilities = {
-        -- Affliction - the maintained DoTs/curses stay on screen and go grayscale
-        -- while they are missing from the target.
-        -- playerOnly: these land on the target, so only OUR copy should count
-        -- as active - a second warlock's Corruption/UA/curse is not our damage.
+        -- Maintained DoTs/curses; greyscale while missing.
+        -- playerOnly: only our own copy counts.
         { name = "Unstable Affliction",  icon = "Interface\\Icons\\Spell_Shadow_UnstableAffliction_3", size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Corruption",           icon = "Interface\\Icons\\Spell_Shadow_AbominationExplosion", size = 46, alwaysVisible = true, playerOnly = true },
         { name = "Haunt",                icon = "Interface\\Icons\\Ability_Warlock_Haunt",             size = 46, alwaysVisible = true, playerOnly = true },
-        -- Only one curse can be active, so they form a group: whichever is up
-        -- is shown, the rest are hidden; all show grayscale when none is up.
+        -- Only one curse can be up; the rest hide while one is active.
         { name = "Curse of Agony",       icon = "Interface\\Icons\\Spell_Shadow_CurseOfSargeras",      size = 46, alwaysVisible = true, group = "curse", playerOnly = true },
         { name = "Curse of the Elements",icon = "Interface\\Icons\\Spell_Shadow_ChillTouch",          alwaysVisible = true, group = "curse", playerOnly = true },
         { name = "Curse of Doom",        icon = "Interface\\Icons\\Spell_Shadow_CurseOfMannoroth",    alwaysVisible = true, group = "curse", playerOnly = true },
@@ -67,8 +53,7 @@ TrackerCore:RegisterModule({
         { name = "Immolate",             icon = "Interface\\Icons\\Spell_Fire_Immolation",             size = 46, playerOnly = true },
         { name = "Backdraft",            icon = "Interface\\Icons\\Spell_Fire_Fire",                   alwaysShow = true, showCount = true },
         { name = "Molten Core",          icon = "Interface\\Icons\\Spell_Fire_Fireball",               alwaysShow = true, showCount = true },
-        -- Improved Shadow Bolt applies "Shadow Mastery": +5% spell crit taken,
-        -- the same effect as a mage's Improved Scorch.
+        -- Improved Shadow Bolt's debuff; same +5% crit as Improved Scorch.
         { name = "Shadow Mastery",       spellID = 17800, icon = "Interface\\Icons\\Spell_Shadow_ShadowBolt", alwaysShow = true },
         { name = "Nether Protection",    icon = "Interface\\Icons\\Spell_Shadow_NetherProtection",     alwaysShow = true },
         { name = "Backlash",             icon = "Interface\\Icons\\Spell_Fire_Fire",                   alwaysShow = true },
@@ -81,8 +66,7 @@ TrackerCore:RegisterModule({
         -- Glyph of Life Tap leaves a "Life Tap" buff (63321) that boosts spell power.
         { name = "Life Tap",             spellID = 63321, icon = "Interface\\Icons\\Spell_Shadow_BurningSpirit", alwaysVisible = true },
         { name = "Soul Link",            icon = "Interface\\Icons\\Spell_Shadow_GrimWard" },
-        -- Fel/Demon Armor are mutually exclusive, so they form a group: the one
-        -- that is up is shown, and the rest show grayscale when neither is up.
+        -- Fel/Demon Armor are mutually exclusive; only the active one shows.
         { name = "Fel Armor",            icon = "Interface\\Icons\\Spell_Shadow_FelArmour",   alwaysVisible = true, group = "armor" },
         { name = "Demon Armor",          icon = "Interface\\Icons\\Spell_Shadow_RagingScream", alwaysVisible = true, group = "armor" },
         { name = "Shadow Ward",          icon = "Interface\\Icons\\Spell_Shadow_AntiShadow" }
@@ -95,13 +79,5 @@ TrackerCore:RegisterModule({
     blinkThreshold = 5,
     point = { "CENTER", 0, -100 },
     scale = 1.0,
-    locked = false,
-
-    -- No resource bar for the warlock HUD.
-
-    debugSpells = { "Metamorphosis", "Chaos Bolt", "Haunt", "Shadow Trance" },
-    debugExtra = function()
-        local shards = GetItemCount and GetItemCount(6265) or 0
-        print("  Soul Shards: " .. tostring(shards))
-    end
+    locked = false
 })

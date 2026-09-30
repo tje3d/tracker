@@ -1,14 +1,8 @@
 --[[--------------------------------------------------------------------------
     RogueTracker - WotLK 3.3.5a
 
-    Class module for TrackerCore. It only describes WHAT to track; the shared
-    engine (layout, scanning, aura lookup, refresh loop, events, slash) lives
-    in TrackerCore. Layout (top to bottom):
-      1. Abilities (only visible when active on target/player)
-      2. Energy bar
-      3. Combo points (5 wide rectangles)
-      4. Cooldowns (8 per row, wraps)
-      5. Missing poison warning
+    Class config for TrackerCore. Layout top to bottom:
+      abilities, energy, combo points, cooldowns, poison warning.
 --------------------------------------------------------------------------]]
 
 TrackerCore:RegisterModule({
@@ -73,7 +67,5 @@ TrackerCore:RegisterModule({
         height = 18,
         color = { 1, 0.8, 0.2 }
     },
-    warning = { type = "poison" },
-
-    debugSpells = { "Killing Spree", "Tricks of the Trade", "Shadowstep" }
+    warning = { type = "poison" }
 })
