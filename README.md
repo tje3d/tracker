@@ -24,7 +24,7 @@ out of the way when nothing is happening.
 It is built as **one shared engine plus a small config file per class**:
 
 - **`TrackerCore`** — always loaded. Owns spellbook scanning, aura lookup,
-  the icon factory, glow/blink drivers, layout, the 10 Hz refresh loop,
+  the icon factory, the glow driver, layout, the 10 Hz refresh loop,
   events and the shared `/tracker` command.
 - **`<Class>Tracker`** — a `LoadOnDemand` module that only declares *what* to
   track. The core loads the one matching your class at login, so rogue code
@@ -73,13 +73,16 @@ Add a new class by dropping in a single table — no engine changes required.
   warlock module.
 - **Smart auras.** DoTs and debuffs show on the target with a top-to-bottom
   cooldown sweep (ElvUI nameplate style).
-  `playerOnly` entries only count *your* copy, so another caster's Corruption
-  or Serpent Sting never reads as yours.
+  `playerOnly` entries only count *your* copy, so another caster's Corruption,
+  Serpent Sting or Rupture never reads as yours.
+- **Cross-class buffs.** Hand of Freedom / Protection / Salvation / Sacrifice,
+  Power Infusion and Hysteria are watched by *every* tracker, whatever class you
+  play — Hysteria is drawn at the larger icon size.
 - **Upkeep reminders.** Maintained effects (`alwaysVisible`) stay in the row and
   desaturate while missing — a glanceable "you forgot to refresh this" cue.
 - **Exclusive groups.** One curse at a time? Only the active curse is drawn.
-- **Proc glow & blink.** Cooldowns and procs glow when ready and blink as they
-  come off cooldown (`glowWhenReady`, `blinkThreshold`).
+- **Proc glow.** Cooldowns with `glowWhenReady` light up the moment they become
+  available again — a clean glow, with no flashing icons.
 - **Resource & secondary bars.** Rage, mana, energy, runic power — plus combo
   points and color-coded death knight runes.
 - **Draggable & scalable.** Unlock, drag anywhere, lock for click-through, and

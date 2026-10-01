@@ -32,7 +32,8 @@ TrackerCore:RegisterModule({
     abilities = {
         { name = "Stealth",              icon = "Interface\\Icons\\Ability_Stealth" },
         { name = "Slice and Dice",       icon = "Interface\\Icons\\Ability_Rogue_SliceDice" },
-        { name = "Rupture",              icon = "Interface\\Icons\\Ability_Rogue_Rupture" },
+        -- playerOnly: only our own Rupture counts, another rogue's is ignored.
+        { name = "Rupture",              icon = "Interface\\Icons\\Ability_Rogue_Rupture", playerOnly = true },
         { name = "Expose Armor",         icon = "Interface\\Icons\\Ability_Warrior_Riposte" },
         { name = "Hunger for Blood",     icon = "Interface\\Icons\\Ability_Rogue_HungerforBlood" },
         { name = "Adrenaline Rush",      icon = "Interface\\Icons\\Spell_Shadow_ShadowWordDominate", size = 46 },
@@ -49,7 +50,6 @@ TrackerCore:RegisterModule({
     abilityIconSize = 36,
     spacing = 4,
     maxCooldownsPerRow = 8,
-    blinkThreshold = 5,
     point = { "CENTER", 0, -100 },
     scale = 1.0,
     locked = false,

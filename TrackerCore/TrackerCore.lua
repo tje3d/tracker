@@ -4,7 +4,7 @@
     Shared engine for the class trackers. Each <Class>Tracker is a separate
     LoadOnDemand addon that only calls TrackerCore:RegisterModule(config).
     Everything else lives here: spellbook scanning, aura lookup, the icon
-    factory, glow/blink, layout, the refresh loop and /tracker.
+    factory, glow, layout, the refresh loop and /tracker.
 
     Add new classes to MODULES below.
 --------------------------------------------------------------------------]]
@@ -32,7 +32,11 @@ local COMMON_ABILITIES = {
     { name = "Hand of Protection", icon = "Interface\\Icons\\Spell_Holy_SealOfProtection", alwaysShow = true },
     { name = "Hand of Salvation",  icon = "Interface\\Icons\\Spell_Holy_SealOfSalvation",  alwaysShow = true },
     { name = "Hand of Sacrifice",  icon = "Interface\\Icons\\Spell_Holy_SealOfSacrifice",  alwaysShow = true },
-    { name = "Power Infusion",     icon = "Interface\\Icons\\Spell_Holy_PowerInfusion",    alwaysShow = true }
+    { name = "Power Infusion",     icon = "Interface\\Icons\\Spell_Holy_PowerInfusion",    alwaysShow = true },
+    -- Hysteria can be given to any class, so every tracker watches for it.
+    -- The giver's own tracker may also list it as a cooldown; that is the
+    -- "can I cast it" timer, this is the "do I have it" buff.
+    { name = "Hysteria",           icon = "Interface\\Icons\\Spell_DeathKnight_Hysteria",  alwaysShow = true, size = 46 }
 }
 
 Core.pending = {}       -- module configs registered before login
@@ -72,7 +76,7 @@ end
 --   addonName, dbName, className, printColor
 --   cooldowns, abilities (see entry options below)
 --   iconSize, abilityIconSize, spacing, maxCooldownsPerRow
---   point, scale, locked, blinkThreshold, swipeLayers
+--   point, scale, locked, swipeLayers
 --   resource, secondary, warning
 --
 -- entry options:
@@ -94,7 +98,6 @@ function Core:InitModule(CONFIG)
 
     local ADDON_NAME = CONFIG.addonName
     local PREFIX = CONFIG.printColor .. ADDON_NAME .. "|r"
-    local BLINK_THRESHOLD = CONFIG.blinkThreshold or 5
 
     -- =======================================================================
     -- DATABASE
@@ -363,61 +366,8 @@ function Core:InitModule(CONFIG)
         GetGlowDriver():Show()
     end
 
-    -- =======================================================================
-    -- ABILITY BLINK
-    -- Abilities under blinkThreshold pulse through one shared OnUpdate.
-    -- =======================================================================
-    local blinkActive, blinkActiveCount = {}, 0
-    local blinkDriver
-
-    local function ClearBlinkIcons()
-        for i = 1, blinkActiveCount do
-            local icon = blinkActive[i]
-            if icon and icon.texture then icon.texture:SetAlpha(1) end
-            blinkActive[i] = nil
-        end
-        blinkActiveCount = 0
-        if blinkDriver then blinkDriver:Hide() end
-    end
-
-    local function OnBlinkUpdate()
-        local alpha = 0.35 + 0.65 * (0.5 + 0.5 * math.sin(GetTime() * 9))
-        for i = 1, blinkActiveCount do
-            blinkActive[i].texture:SetAlpha(alpha)
-        end
-    end
-
-    local function IconStopBlink(self)
-        if not self.rtBlinking then return end
-        self.rtBlinking = false
-        self.texture:SetAlpha(1)
-        for i = 1, blinkActiveCount do
-            if blinkActive[i] == self then
-                blinkActive[i] = blinkActive[blinkActiveCount]
-                blinkActive[blinkActiveCount] = nil
-                blinkActiveCount = blinkActiveCount - 1
-                break
-            end
-        end
-        if blinkActiveCount == 0 and blinkDriver then blinkDriver:Hide() end
-    end
-
-    local function IconStartBlink(self)
-        if self.rtBlinking then return end
-        self.rtBlinking = true
-        if not blinkDriver then
-            blinkDriver = CreateFrame("Frame", nil, mainFrame or UIParent)
-            blinkDriver:Hide()
-            blinkDriver:SetScript("OnUpdate", OnBlinkUpdate)
-        end
-        blinkActiveCount = blinkActiveCount + 1
-        blinkActive[blinkActiveCount] = self
-        blinkDriver:Show()
-    end
-
     local function ClearUI()
         ClearGlowIcons()
-        ClearBlinkIcons()
         for i = 1, #activeAbilities do activeAbilities[i].frame = nil end
         lastAbilitySignature = -1
         elements.rtComboPoints = nil
@@ -1141,7 +1091,6 @@ function Core:InitModule(CONFIG)
                     entry.showCount = data.showCount
                 else
                     data.frame:Hide()
-                    IconStopBlink(data.frame)
                     if data.frame.sweepFrames then
                         SweepHide(data.frame)
                     end
@@ -1195,12 +1144,6 @@ function Core:InitModule(CONFIG)
                     else
                         frame.texture:SetDesaturated(true)
                         frame.texture:SetVertexColor(0.55, 0.55, 0.55)
-                    end
-
-                    if entry.active and entry.duration > 0 and entry.remaining < BLINK_THRESHOLD then
-                        IconStartBlink(frame)
-                    else
-                        IconStopBlink(frame)
                     end
 
                     local text = (entry.active and entry.duration > 0) and FormatTime(entry.remaining) or ""

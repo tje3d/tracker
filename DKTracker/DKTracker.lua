@@ -50,7 +50,6 @@ TrackerCore:RegisterModule({
     abilityIconSize = 36,
     spacing = 4,
     maxCooldownsPerRow = 8,
-    blinkThreshold = 5,
     point = { "CENTER", 0, -100 },
     scale = 1.0,
     locked = false,
