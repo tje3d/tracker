@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Rogue
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cfffff569Rogue|r
 ## Notes: Rogue HUD (abilities, energy, combo points, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1

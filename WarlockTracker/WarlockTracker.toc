@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Warlock
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cff9482c9Warlock|r
 ## Notes: Affliction, Destruction & Demonology Warlock HUD (procs, DoTs, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1

@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Mage
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cff69ccf0Mage|r
 ## Notes: Fire & Arcane Mage HUD (procs, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1

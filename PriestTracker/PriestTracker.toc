@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Priest
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cffffffffPriest|r
 ## Notes: Shadow Priest HUD (DoTs, procs, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1

@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Death Knight
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cffc41f3bDeath Knight|r
 ## Notes: Unholy Death Knight HUD (runes, runic power, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1

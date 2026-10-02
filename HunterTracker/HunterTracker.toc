@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Tracker - Hunter
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cffabd473Hunter|r
 ## Notes: Marksmanship Hunter HUD (aspects, sting, mana, cooldowns) for TrackerCore.
 ## Version: 1.0.0
 ## LoadOnDemand: 1
