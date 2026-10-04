@@ -3,6 +3,28 @@
 All notable changes to **Tracker**, a modular class HUD for World of Warcraft
 3.3.5a (WotLK). Newest first.
 
+## 1.5.0 — 2026-10-04
+
+### Added
+- **PaladinTracker** — a Retribution Paladin module. Seals and auras form
+  exclusive groups, Art of War procs and Judgement of the Wise are watched,
+  mana gets a bar, and a `MISSING: SEAL + AURA` line warns when upkeep drops.
+- **Rotation queue** — a new optional engine feature (`rotation` in a module's
+  config). PaladinTracker uses it to show the next spells to cast, Clash-system
+  style: soonest-ready first with the configured priority as the tie-break, the
+  next ready spell glowing, unaffordable spells tinted blue, and cooldowns swept
+  with their timers. Entries can be gated to execute range (`execute`) or an
+  undead target (`undeadOnly`), and a buff swaps in a separate AoE list
+  (`aoeBuff` / `aoeList`).
+- PaladinTracker ships the Retribution Clash priority — Hammer of Wrath
+  (execute), Judgement, Divine Storm, Crusader Strike, Consecration, Exorcism,
+  Holy Wrath (undead only) — with an AoE order while Seal of Command is up.
+
+### Changed
+- The `auras` warning type understands `family`: mutually exclusive buffs such
+  as seals and auras are reported only when none of the group is up, instead of
+  one line per missing member.
+
 ## 1.4.1 — 2026-10-04
 
 ### Fixed
