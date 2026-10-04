@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cffff7d0aDruid|r
 ## Notes: Balance Druid HUD (procs, DoTs, cooldowns) for TrackerCore.
-## Version: 1.3.1
+## Version: 1.4.0
 ## LoadOnDemand: 1
 ## Dependencies: TrackerCore
 ## SavedVariables: DruidTrackerDB
