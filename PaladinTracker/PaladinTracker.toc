@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cfff58cbaPaladin|r
+## Notes: Retribution Paladin HUD (rotation queue, abilities, mana, cooldowns) for TrackerCore.
+## Version: 1.5.0
+## LoadOnDemand: 1
+## Dependencies: TrackerCore
+## SavedVariables: PaladinTrackerDB
+
+PaladinTracker.lua

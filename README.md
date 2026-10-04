@@ -41,8 +41,8 @@ Add a new class by dropping in a single table — no engine changes required.
                                       │ LoadAddOn(class)
         ┌──────────┬──────────┬───────┼───────┬──────────┬──────────┐
         ▼          ▼          ▼       ▼       ▼          ▼          ▼
-      Rogue       DK       Hunter   Mage   Priest    Warrior    Warlock   Druid
-      (config)  (config)  (config) (config)(config)  (config)   (config) (config)
+      Rogue       DK       Hunter   Mage   Priest    Warrior    Warlock   Druid    Paladin
+      (config)  (config)  (config) (config)(config)  (config)   (config) (config) (config)
 ```
 
 ## Screenshots
@@ -87,6 +87,10 @@ Add a new class by dropping in a single table — no engine changes required.
   points and color-coded death knight runes.
 - **Draggable & scalable.** Unlock, drag anywhere, lock for click-through, and
   scale from 0.5 to 2.0. Position and scale are saved per character.
+- **Rotation queue.** PaladinTracker shows the next spells to cast,
+  Clash-system style — soonest-ready first, priority as the tie-break,
+  execute-only and undead-only entries gated on the target, and an AoE order
+  while Seal of Command is up.
 - **Shared command.** One `/tracker` entry point for every class.
 
 ## Supported classes
@@ -101,6 +105,7 @@ Add a new class by dropping in a single table — no engine changes required.
 | Warrior | Fury | Rage | — | Flurry / Sunder stacks |
 | Warlock | Affliction / Destro / Demo | — | — | Curse group, DoT upkeep |
 | Druid | Balance | — | — | Eclipse (Solar/Lunar), DoTs |
+| Paladin | Retribution | Mana | — | Seal / aura reminder, rotation queue |
 
 ## Installation
 
@@ -120,6 +125,7 @@ Interface/AddOns/
 ├── DruidTracker/
 ├── HunterTracker/
 ├── MageTracker/
+├── PaladinTracker/
 ├── PriestTracker/
 ├── WarriorTracker/
 └── WarlockTracker/

@@ -22,7 +22,8 @@ local MODULES = {
     PRIEST      = "PriestTracker",
     WARRIOR     = "WarriorTracker",
     WARLOCK     = "WarlockTracker",
-    DRUID       = "DruidTracker"
+    DRUID       = "DruidTracker",
+    PALADIN     = "PaladinTracker"
 }
 
 -- Buffs other classes cast on the player, shown by every tracker.
@@ -78,6 +79,11 @@ end
 --   iconSize, abilityIconSize, spacing, maxCooldownsPerRow
 --   point, scale, locked, swipeLayers
 --   resource, secondary, warning
+--   rotation (optional): Clash-style "next spell" queue. Keys:
+--     icons, iconSize, spacing, glowNext, list, aoeBuff, aoeList.
+--     list entries take "name" and "execute" (target below 20% HP);
+--     aoeList replaces list while aoeBuff is up on the player;
+--     undeadOnly entries need an undead target.
 --
 -- entry options:
 --   size          bigger icon
@@ -296,6 +302,7 @@ function Core:InitModule(CONFIG)
     local activeAbilities = {}
     local lastAbilitySignature = -1
     local lastBuildSignature = -1
+    local rotQueue = {}   -- rotation entries, rebuilt every tick
 
     -- =======================================================================
     -- PROC GLOW
@@ -418,6 +425,17 @@ function Core:InitModule(CONFIG)
             local sec = elements.secondary[i]
             if sec and sec.parent then sec.parent:Hide(); sec.parent:SetParent(nil) end
             elements.secondary[i] = nil
+        end
+        if elements.rotation then
+            for i = #elements.rotation, 1, -1 do
+                local slot = elements.rotation[i]
+                if slot.frame then
+                    slot.frame:Hide()
+                    slot.frame:SetParent(nil)
+                end
+                elements.rotation[i] = nil
+            end
+            elements.rotation = nil
         end
     end
 
@@ -662,6 +680,57 @@ function Core:InitModule(CONFIG)
         elements.abilityRowHeight = abilityRowHeight
         currentY = currentY - abilityRowHeight - 5
 
+        -- Rotation row (optional): the next spells to cast. The queue
+        -- is re-sorted every tick by cooldown left; the config
+        -- priority breaks ties.
+        local rot = CONFIG.rotation
+        if rot then
+            local rotSize = rot.iconSize or CONFIG.abilityIconSize
+            local rotSpacing = rot.spacing or spacing
+            local rotCount = rot.icons or 5
+            local totalWidth = (rotSize * rotCount) + (rotSpacing * (rotCount - 1))
+            local startX = -(totalWidth / 2) + (rotSize / 2)
+
+            -- Spell art and the client-side spell name never change
+            -- at runtime: resolve both once. Matching by the name
+            -- GetSpellInfo reports for the spell ID keeps the queue
+            -- working on localized spellbooks, the same way
+            -- RetRotation matches by ID.
+            local function PrepareList(list)
+                if list then
+                    for _, entry in ipairs(list) do
+                        if entry.spellID then
+                            entry.rtName = GetSpellInfo(entry.spellID) or entry.name
+                        else
+                            entry.rtName = entry.name
+                        end
+                        -- Resolve the art by name first (the lookup the
+                        -- cooldown row uses), then by spell ID.
+                        local ok, tex = pcall(GetSpellTexture, entry.rtName)
+                        if ok and tex and tex ~= "" then
+                            entry.rtTexture = tex
+                        else
+                            entry.rtTexture = GetIconTexture(entry)
+                        end
+                    end
+                end
+            end
+            PrepareList(rot.list)
+            PrepareList(rot.aoeList)
+
+            elements.rotation = {}
+            for i = 1, rotCount do
+                local icon = CreateIcon(mainFrame, rotSize)
+                icon:SetPoint("TOP", mainFrame, "TOP",
+                    startX + (i - 1) * (rotSize + rotSpacing), currentY)
+                icon.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+                icon:Hide()
+                elements.rotation[i] = { frame = icon }
+            end
+
+            currentY = currentY - rotSize - 5
+        end
+
         -- Resource bar (optional)
         local res = CONFIG.resource
         if res then
@@ -816,6 +885,26 @@ function Core:InitModule(CONFIG)
     -- =======================================================================
     -- UPDATE LOGIC
     -- =======================================================================
+    -- Undead check for the rotation (Holy Wrath). UnitCreatureType is
+    -- localized in 3.3.5a and there is no creature-type ID API, so the
+    -- known strings for the major clients are matched; enUS is the
+    -- reference.
+    local UNDEAD_TYPES = {
+        ["Undead"] = true,      -- enUS
+        ["Untoter"] = true,     -- deDE
+        ["Mort-vivant"] = true, -- frFR
+        ["No-muerto"] = true,   -- esES
+        ["No muerto"] = true,   -- esMX
+        ["Нежить"] = true,      -- ruRU
+        ["亡灵"] = true,         -- zhCN
+        ["不死"] = true,         -- zhTW
+        ["언데드"] = true       -- koKR
+    }
+
+    local function IsUndead(unit)
+        return UNDEAD_TYPES[UnitCreatureType(unit) or ""] == true
+    end
+
     local function FormatTime(seconds)
         if seconds >= 60 then
             return string.format("%dm", math.floor(seconds / 60))
@@ -1085,6 +1174,177 @@ function Core:InitModule(CONFIG)
             end
         end
 
+        -- Rotation queue: the next spells to cast, Clash-style.
+        -- Soonest ready first; the config priority breaks ties.
+        local rotation = elements.rotation
+        if rotation then
+            local cfg = CONFIG.rotation
+
+            -- AoE mode: the buff swaps the priority list.
+            local list = cfg.list
+            if cfg.aoeBuff and cfg.aoeList then
+                if GetPlayerAura(cfg.aoeBuff.name, cfg.aoeBuff.spellID) then
+                    list = cfg.aoeList
+                end
+            end
+
+            -- Rebuild the queue from scratch every tick.
+            for k in pairs(rotQueue) do rotQueue[k] = nil end
+            local count = 0
+            for i, entry in ipairs(list) do
+                -- Match by the name the client itself reports for
+                -- the spell ID, so localized and rank-suffixed
+                -- spellbooks resolve the same way as RetRotation.
+                local spellName = entry.rtName or entry.name
+                -- RetRotation's inclusion test: GetSpellCooldown only
+                -- returns data for spells the player can use, so no
+                -- separate spellbook check is needed.
+                local start, duration = GetSpellCooldown(spellName)
+                if not start then
+                    -- The client may report a different name for the
+                    -- ID; fall back to the configured name.
+                    spellName = entry.name
+                    start, duration = GetSpellCooldown(spellName)
+                end
+
+                if start and duration then
+                    -- "execute" entries only count in execute range.
+                    local skip = false
+                    if entry.execute then
+                        local maxHealth = UnitHealthMax("target")
+                        skip = not (UnitCanAttack("player", "target")
+                            and maxHealth > 0
+                            and (UnitHealth("target") / maxHealth) <= 0.2)
+                    end
+                    -- undeadOnly entries need an undead target.
+                    if not skip and entry.undeadOnly and not IsUndead("target") then
+                        skip = true
+                    end
+
+                    if not skip then
+                        local cdLeft = 0
+                        if duration > 0 then
+                            cdLeft = (start + duration) - nowTime
+                            if cdLeft < 0 then cdLeft = 0 end
+                            -- GCD-scale cooldowns count as ready.
+                            if cdLeft > 0 and cdLeft <= 2.0 and duration <= 2.0 then
+                                cdLeft = 0
+                            end
+                        end
+
+                        count = count + 1
+                        local item = rotQueue[count]
+                        if not item then
+                            item = {}
+                            rotQueue[count] = item
+                        end
+                        item.index = i
+                        item.entry = entry
+                        item.cdLeft = cdLeft
+                        item.start = start
+                        item.duration = duration
+                        item.nomana = select(2, IsUsableSpell(spellName))
+                    end
+                end
+            end
+
+            table.sort(rotQueue, function(a, b)
+                if math.abs(a.cdLeft - b.cdLeft) < 0.1 then
+                    return a.index < b.index
+                end
+                return a.cdLeft < b.cdLeft
+            end)
+
+            local show = math.min(count, #rotation)
+            for i = 1, #rotation do
+                local slot = rotation[i]
+                local frame = slot.frame
+                local item = (i <= show) and rotQueue[i] or nil
+
+                if item then
+                    frame:Show()
+
+                    -- Head of the queue: full alpha, the rest queue up dimmer.
+                    local head = (i == 1)
+                    local alpha = head and 1 or 0.6
+                    if frame:GetAlpha() ~= alpha then frame:SetAlpha(alpha) end
+
+                    if slot.rtTexture ~= item.entry.rtTexture then
+                        slot.rtTexture = item.entry.rtTexture
+                        frame.texture:SetTexture(item.entry.rtTexture)
+                    end
+
+                    local cdLeft = item.cdLeft
+                    if cdLeft > 0 then
+                        local text = FormatTime(cdLeft)
+                        if slot.rtText ~= text then
+                            slot.rtText = text
+                            frame.text:SetText(text)
+                        end
+                        if slot.rtStart ~= item.start or slot.rtDuration ~= item.duration then
+                            slot.rtStart, slot.rtDuration = item.start, item.duration
+                            SweepSet(frame, item.start, item.duration)
+                        end
+                        if not slot.rtSweepShown then
+                            slot.rtSweepShown = true
+                            SweepShow(frame)
+                        end
+                    else
+                        if slot.rtText ~= "" then
+                            slot.rtText = ""
+                            frame.text:SetText("")
+                        end
+                        if slot.rtSweepShown then
+                            slot.rtSweepShown = false
+                            slot.rtStart, slot.rtDuration = 0, 0
+                            SweepHide(frame)
+                        end
+                    end
+
+                    -- Tint: out of mana first, then on cooldown.
+                    local tint = 0
+                    if item.nomana then
+                        tint = 1
+                    elseif cdLeft > 0 then
+                        tint = 2
+                    end
+                    if slot.rtTint ~= tint then
+                        slot.rtTint = tint
+                        if tint == 1 then
+                            frame.texture:SetVertexColor(0.5, 0.5, 1.0)
+                        elseif tint == 2 then
+                            frame.texture:SetVertexColor(0.55, 0.55, 0.55)
+                        else
+                            frame.texture:SetVertexColor(1, 1, 1)
+                        end
+                    end
+
+                    -- The head glows while it is ready to cast.
+                    local shouldGlow = head and (cdLeft <= 0.1) and (cfg.glowNext ~= false)
+                    if slot.rtGlow ~= shouldGlow then
+                        slot.rtGlow = shouldGlow
+                        if shouldGlow then
+                            frame:StartGlow()
+                        else
+                            frame:StopGlow()
+                        end
+                    end
+                else
+                    frame:Hide()
+                    if slot.rtSweepShown then
+                        slot.rtSweepShown = false
+                        slot.rtStart, slot.rtDuration = 0, 0
+                        SweepHide(frame)
+                    end
+                    if slot.rtGlow then
+                        slot.rtGlow = false
+                        frame:StopGlow()
+                    end
+                    slot.rtTexture = nil
+                end
+            end
+        end
+
         -- Abilities: active ones plus alwaysVisible reminders, centred
         do
             local abilitySize = CONFIG.abilityIconSize
@@ -1335,13 +1595,30 @@ function Core:InitModule(CONFIG)
                     text = (found and remaining > 0) and "" or CONFIG.warning.text
                 elseif CONFIG.warning.type == "auras" then
                     -- Name every missing upkeep buff; skip spells we don't know.
+                    -- `family` groups mutually-exclusive buffs (seals, auras):
+                    -- the family is only missing when none of its members is up.
                     local missing = ""
+                    local familyOrder, familyState = {}, {}
                     for _, entry in ipairs(CONFIG.warning.auras) do
                         if IsSpellKnown(entry.name) then
-                            local found, remaining = GetPlayerAura(entry.name)
-                            if not (found and remaining > 0) then
+                            local found, remaining = GetPlayerAura(entry.name, entry.spellID)
+                            if entry.family then
+                                local state = familyState[entry.family]
+                                if not state then
+                                    state = { found = false, text = entry.text or entry.family }
+                                    familyState[entry.family] = state
+                                    familyOrder[#familyOrder + 1] = state
+                                end
+                                if found and remaining > 0 then state.found = true end
+                            elseif not (found and remaining > 0) then
                                 missing = (missing ~= "") and (missing .. " + " .. entry.text) or entry.text
                             end
+                        end
+                    end
+                    for i = 1, #familyOrder do
+                        local state = familyOrder[i]
+                        if not state.found then
+                            missing = (missing ~= "") and (missing .. " + " .. state.text) or state.text
                         end
                     end
                     text = (missing ~= "") and ((CONFIG.warning.prefix or "MISSING: ") .. missing) or ""
