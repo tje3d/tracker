@@ -105,6 +105,32 @@ function Core:InitModule(CONFIG)
     -- not ready early enough, so we adopt the old per-module table on first
     -- run to keep existing position/scale/lock.
     -- =======================================================================
+    -- The frame used to be a fixed 500 tall and anchored by CENTER, so its top
+    -- edge (where everything is laid out from) depended on that height and the
+    -- empty lower half still swallowed mouse clicks. Anchor by the top edge
+    -- instead: then the height can track the content and the icons never move.
+    local LEGACY_FRAME_HEIGHT = 500
+
+    local function IsTopAnchored(point)
+        return type(point) == "string" and string.find(point, "TOP", 1, true) ~= nil
+    end
+
+    -- How far down the frame the anchor sits, as a fraction of its height.
+    local function AnchorFraction(point)
+        if type(point) == "string" then
+            if string.find(point, "TOP", 1, true) then return 0 end
+            if string.find(point, "BOTTOM", 1, true) then return 1 end
+        end
+        return 0.5   -- CENTER, MIDDLE, LEFT, RIGHT
+    end
+
+    -- Rewrite an old height-dependent point (CENTER/BOTTOM/...) as the
+    -- equivalent TOP point, keeping the frame's top edge exactly where it was.
+    local function ToTopPoint(point, x, y, frameHeight)
+        if IsTopAnchored(point) then return point, x, y end
+        return "TOP", x, y + AnchorFraction(point) * (frameHeight - UIParent:GetHeight())
+    end
+
     local db
     local function InitializeDB()
         if not TrackerCoreDB then TrackerCoreDB = {} end
@@ -115,6 +141,8 @@ function Core:InitModule(CONFIG)
         end
         db = store
         db.point = db.point or { CONFIG.point[1], CONFIG.point[2], CONFIG.point[3] }
+        db.point[1], db.point[2], db.point[3] =
+            ToTopPoint(db.point[1], db.point[2], db.point[3], LEGACY_FRAME_HEIGHT)
         db.scale = db.scale or CONFIG.scale
         db.locked = db.locked or CONFIG.locked
         if db.swipeLayers == nil then db.swipeLayers = CONFIG.swipeLayers or 2 end
@@ -527,7 +555,8 @@ function Core:InitModule(CONFIG)
     local function CreateMainFrame()
         local rowWidth = GetRowWidth()
         mainFrame = CreateFrame("Frame", ADDON_NAME .. "Frame", UIParent)
-        mainFrame:SetSize(rowWidth + 20, 500)
+        -- Height is provisional; BuildUI resizes the frame to fit its content.
+        mainFrame:SetSize(rowWidth + 20, CONFIG.iconSize)
         mainFrame:SetPoint(db.point[1], UIParent, db.point[1], db.point[2], db.point[3])
         mainFrame:SetScale(db.scale)
         mainFrame:SetMovable(true)
@@ -550,7 +579,8 @@ function Core:InitModule(CONFIG)
         mainFrame:SetScript("OnDragStop", function(self)
             self:StopMovingOrSizing()
             local point, _, _, x, y = self:GetPoint()
-            db.point = { point, x, y }
+            if point then point, x, y = ToTopPoint(point, x, y, self:GetHeight()) end
+            db.point = { point or "CENTER", x or 0, y or 0 }
         end)
 
         -- Optional warning bar; re-anchored under the content by BuildUI.
@@ -771,7 +801,16 @@ function Core:InitModule(CONFIG)
         if mainFrame.warn then
             mainFrame.warn:ClearAllPoints()
             mainFrame.warn:SetPoint("TOP", mainFrame, "TOP", 0, currentY)
+            currentY = currentY - 16   -- the warning bar is 16 tall
         end
+
+        -- Size the frame to what was actually laid out. The mouse region while
+        -- unlocked is the frame, so a fixed tall frame left an invisible block
+        -- over the action bars. Everything is anchored to the frame's top edge,
+        -- so shrinking it never moves the icons.
+        local contentHeight = -currentY
+        if contentHeight < CONFIG.iconSize then contentHeight = CONFIG.iconSize end
+        mainFrame:SetHeight(contentHeight)
     end
 
     -- =======================================================================
@@ -1436,9 +1475,12 @@ function Core:InitModule(CONFIG)
             if mainFrame and mainFrame.ApplyMouseState then mainFrame:ApplyMouseState() end
             print(PREFIX .. ": Unlocked. Drag to move.")
         elseif command == "reset" then
-            db.point = { "CENTER", 0, -100 }
+            -- Same on-screen spot the old CENTER reset landed on, now TOP-based
+            -- so the size no longer shifts it.
+            local _, x, y = ToTopPoint("CENTER", 0, -100, LEGACY_FRAME_HEIGHT)
+            db.point = { "TOP", x, y }
             mainFrame:ClearAllPoints()
-            mainFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+            mainFrame:SetPoint("TOP", UIParent, "TOP", x, y)
             print(PREFIX .. ": Position reset.")
         elseif command == "scale" then
             HandleScale(argument)
