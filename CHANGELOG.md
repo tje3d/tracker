@@ -3,6 +3,16 @@
 All notable changes to **Tracker**, a modular class HUD for World of Warcraft
 3.3.5a (WotLK). Newest first.
 
+## 1.4.1 — 2026-10-04
+
+### Fixed
+- The HUD no longer eats clicks on the action bars. Its container frame was a
+  fixed 500 px tall and anchored by its centre, so while unlocked the invisible
+  lower half hung over the bars. It now shrinks to fit exactly what it draws.
+- The frame is anchored by its top edge, so growing or shrinking it never moves
+  the icons. Existing saved positions are migrated automatically, and
+  `/tracker reset` lands on the same spot as before.
+
 ## 1.4.0 — 2026-10-04
 
 ### Added

@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title:|cffffe00a<|r|cffff7d0aTracker|r|cffffe00a>|r |cffc79c6eWarrior|r
 ## Notes: Fury Warrior HUD (procs, rage, cooldowns) for TrackerCore.
-## Version: 1.4.0
+## Version: 1.4.1
 ## LoadOnDemand: 1
 ## Dependencies: TrackerCore
 ## SavedVariables: WarriorTrackerDB
