@@ -136,7 +136,12 @@ Everything is under the single `/tracker` command:
 | `/tracker unlock` | Unlock the HUD and drag it where you want |
 | `/tracker lock` | Lock it in place and enable click-through |
 | `/tracker reset` | Snap back to the default center position |
+| `/tracker scale 1.2` | Resize the whole HUD (0.5 to 2.0) |
+| `/tracker scale up` / `down` | Nudge the size by 0.1 |
 | `/tracker` | Show the command help |
+
+`scale` is forgiving about how you type the number — `1.2`, `1,2`, `<1.2>` and
+`scale N 1.2` all work, and the size is saved per character.
 
 ## Adding a class
 

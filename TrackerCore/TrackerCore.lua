@@ -1376,23 +1376,74 @@ function Core:InitModule(CONFIG)
     -- =======================================================================
     -- SLASH COMMAND HANDLER
     -- =======================================================================
+    -- UI scale, driven from the command line. Applied to mainFrame, so every
+    -- icon, bar and warning under it scales together.
+    local MIN_SCALE, MAX_SCALE = 0.5, 2.0
+    local SCALE_STEP = 0.1
+
+    -- Round to 2 decimals so repeated up/down does not drift.
+    local function RoundScale(value)
+        return math.floor(value * 100 + 0.5) / 100
+    end
+
+    -- Forgiving number parsing: take the first number in the text, so "1.5",
+    -- "1,5" (comma decimal), "<1.5>" (the placeholder brackets) and
+    -- "scale N 1.5" all resolve to the size the player meant.
+    local function ParseScale(text)
+        return tonumber((text:gsub(",", ".")):match("%-?%d*%.?%d+"))
+    end
+
+    local function ApplyScale(value)
+        if value < MIN_SCALE then value = MIN_SCALE end
+        if value > MAX_SCALE then value = MAX_SCALE end
+        value = RoundScale(value)
+        db.scale = value
+        if mainFrame then mainFrame:SetScale(value) end
+        print(string.format("%s: UI scale set to %.2f.", PREFIX, value))
+    end
+
+    local function HandleScale(argument)
+        if argument == "" then
+            print(string.format("%s: UI scale is %.2f (%.1f - %.1f). Use /tracker scale <n> | up | down.",
+                PREFIX, db.scale or CONFIG.scale, MIN_SCALE, MAX_SCALE))
+        elseif argument == "up" then
+            ApplyScale((db.scale or 1) + SCALE_STEP)
+        elseif argument == "down" then
+            ApplyScale((db.scale or 1) - SCALE_STEP)
+        else
+            local value = ParseScale(argument)
+            if value then
+                ApplyScale(value)
+            else
+                print(string.format("%s: Usage: /tracker scale <%.1f-%.1f> | up | down", PREFIX, MIN_SCALE, MAX_SCALE))
+            end
+        end
+    end
+
     local function HandleSlash(msg)
         msg = string.lower(msg or "")
-        if msg == "lock" then
+
+        local command, argument = string.match(msg, "^%s*(%S+)%s*(.-)%s*$")
+        command = command or ""
+        argument = argument or ""
+
+        if command == "lock" then
             db.locked = true
             if mainFrame and mainFrame.ApplyMouseState then mainFrame:ApplyMouseState() end
             print(PREFIX .. ": Locked. Click-through enabled.")
-        elseif msg == "unlock" then
+        elseif command == "unlock" then
             db.locked = false
             if mainFrame and mainFrame.ApplyMouseState then mainFrame:ApplyMouseState() end
             print(PREFIX .. ": Unlocked. Drag to move.")
-        elseif msg == "reset" then
+        elseif command == "reset" then
             db.point = { "CENTER", 0, -100 }
             mainFrame:ClearAllPoints()
             mainFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
             print(PREFIX .. ": Position reset.")
+        elseif command == "scale" then
+            HandleScale(argument)
         else
-            print(PREFIX .. " Commands: /tracker lock | unlock | reset")
+            print(PREFIX .. " Commands: /tracker lock | unlock | reset | scale <n|up|down>")
         end
     end
 
